@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FinanceOS — Minimal Tracker</title>
-    <!-- Chart.js for the ring chart -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root {
@@ -66,6 +65,7 @@
             padding-bottom: 8px;
             scrollbar-width: none;
         }
+        .filter-bar::-webkit-scrollbar { display: none; }
         .filter-chip {
             background: var(--bg-secondary);
             border: 1px solid var(--border);
@@ -78,21 +78,48 @@
         .filter-chip.active { background: var(--text-main); color: var(--bg-primary); }
 
         /* Transaction List */
+        .transaction-wrapper {
+            border-bottom: 1px solid var(--border);
+            animation: fadeIn 0.3s ease;
+        }
         .transaction-card {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 12px 0;
-            border-bottom: 1px solid var(--border);
-            animation: fadeIn 0.3s ease;
+            padding: 12px 0 6px 0;
         }
         .tx-left { display: flex; flex-direction: column; }
         .tx-title { font-weight: 500; font-size: 14px; }
-        .tx-sub { font-size: 12px; color: var(--text-muted); display: flex; gap: 8px; align-items: center; }
+        .tx-sub { font-size: 12px; color: var(--text-muted); display: flex; gap: 8px; align-items: center; margin-top: 2px;}
         .tx-right { text-align: right; }
         .tx-amount { font-weight: 600; font-family: monospace; font-size: 15px; }
         .tx-amount.neg { color: var(--spent); }
         .tx-amount.pos { color: var(--received); }
+
+        .tx-actions-panel {
+            display: flex;
+            gap: 12px;
+            padding-bottom: 10px;
+            font-size: 11px;
+        }
+        .action-link {
+            color: var(--text-muted);
+            cursor: pointer;
+            text-decoration: none;
+        }
+        .action-link:hover {
+            color: var(--text-main);
+        }
+
+        .notes-drawer {
+            background: rgba(255, 255, 255, 0.02);
+            border-left: 2px solid var(--text-muted);
+            padding: 6px 10px;
+            font-size: 12px;
+            color: var(--text-muted);
+            margin: 4px 0 10px 0;
+            border-radius: 0 var(--radius) var(--radius) 0;
+        }
 
         /* Tags (Pills) */
         .pill {
@@ -145,7 +172,23 @@
             cursor: pointer;
         }
 
-        /* Analytics View */
+        /* Analytics Dashboard View */
+        .analytics-selector-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .month-dropdown {
+            background: var(--bg-secondary);
+            color: var(--text-main);
+            border: 1px solid var(--border);
+            padding: 6px 12px;
+            border-radius: var(--radius);
+            cursor: pointer;
+            width: auto;
+            font-weight: 500;
+        }
         .analytics-grid { display: grid; gap: 20px; }
         .stat-card {
             background: var(--bg-secondary);
@@ -161,6 +204,27 @@
             overflow: hidden;
         }
         .progress-fill { height: 100%; background: var(--text-muted); transition: 0.3s; }
+        
+        .charts-row-split {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        @media(max-width: 550px) {
+            .charts-row-split { grid-template-columns: 1fr; }
+        }
+
+        .chart-box-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .chart-wrapper-el {
+            position: relative;
+            width: 100%;
+            max-width: 220px;
+            margin-top: 10px;
+        }
         
         /* Floating Action Button */
         .fab {
@@ -193,70 +257,91 @@
     <div class="container">
         <header>
             <div class="nav-tabs">
-                <div class="nav-tab active" onclick="switchPage('home')">Transactions</div>
-                <div class="nav-tab" onclick="switchPage('analytics')">Dashboard</div>
+                <div class="nav-tab active" id="tab-home" onclick="switchPage('home')">Transactions</div>
+                <div class="nav-tab" id="tab-analytics" onclick="switchPage('analytics')">Dashboard</div>
             </div>
 
             <div id="home-controls">
-                <input type="text" class="search-box" id="globalSearch" placeholder="Search title or notes..." oninput="renderTransactions()">
+                <input type="text" class="search-box" id="globalSearch" placeholder="Search title, notes, location..." oninput="renderTransactions()">
                 <div class="filter-bar" id="categoryFilters">
-                    <!-- Dynamic Category Chips -->
-                </div>
+                    </div>
                 <div style="display: flex; justify-content: space-between; margin-top: 10px;">
                     <span style="font-size: 12px; color: var(--text-muted);" id="txCount">Showing 0 items</span>
                     <div style="display: flex; gap: 10px;">
-                        <span class="pill" style="cursor:pointer" onclick="toggleSort('date')">Sort by Date ↓</span>
-                        <span class="pill" style="cursor:pointer" onclick="toggleSort('amount')">Sort by Amount</span>
+                        <span class="pill" id="sortDateIndicator" style="cursor:pointer" onclick="toggleSort('date')">Sort by Date ↓</span>
+                        <span class="pill" id="sortAmtIndicator" style="cursor:pointer" onclick="toggleSort('amount')">Sort by Amount</span>
                     </div>
                 </div>
             </div>
         </header>
 
-        <!-- PAGE 1: TRANSACTION FEED -->
         <main id="home-view">
             <div id="transactionList"></div>
         </main>
 
-        <!-- PAGE 2: ANALYTICS -->
         <main id="analytics-view" style="display: none;">
+            <div class="analytics-selector-row">
+                <h3 style="font-weight: 500;">Monthly Statements</h3>
+                <select class="month-dropdown" id="analyticsMonthPicker" onchange="updateAnalytics()">
+                    </select>
+            </div>
+
             <div class="analytics-grid">
                 <div class="stat-card">
                     <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <h4 style="color:var(--text-muted); font-size:14px;">Monthly Budget</h4>
-                        <span class="pill" onclick="setBudget()">Set Budget</span>
+                        <h4 style="color:var(--text-muted); font-size:14px;">Monthly Budget Status</h4>
+                        <span class="pill" style="cursor: pointer; background: rgba(255,255,255,0.1);" onclick="setBudget()">Modify This Budget</span>
                     </div>
                     <div id="budgetStatus" style="font-size: 24px; margin: 10px 0;">₹0 / ₹0</div>
                     <div class="budget-progress"><div id="budgetFill" class="progress-fill"></div></div>
                 </div>
 
-                <div class="stat-card">
-                    <h4 style="color:var(--text-muted); font-size:14px;">Savings This Month</h4>
-                    <div id="savingsMetric" style="font-size: 24px; margin: 10px 0; color: var(--received);">₹0</div>
+                <div class="charts-row-split">
+                    <div class="stat-card" style="padding: 15px;">
+                        <h4 style="color:var(--text-muted); font-size:13px; margin-bottom: 5px;">Cash Inflow (Received)</h4>
+                        <div id="inflowMetric" style="font-size: 20px; font-weight: 600; color: var(--received);">₹0</div>
+                    </div>
+                    <div class="stat-card" style="padding: 15px;">
+                        <h4 style="color:var(--text-muted); font-size:13px; margin-bottom: 5px;">Savings Stashed</h4>
+                        <div id="savingsMetric" style="font-size: 20px; font-weight: 600; color: #3498db;">₹0</div>
+                    </div>
                 </div>
 
                 <div class="stat-card">
-                    <h4 style="color:var(--text-muted); font-size:14px; margin-bottom: 15px;">Category Spending</h4>
-                    <canvas id="categoryChart" width="400" height="400"></canvas>
+                    <h4 style="color:var(--text-muted); font-size:14px; margin-bottom: 15px; text-align: center;">Statistical Distributions</h4>
+                    <div class="charts-row-split">
+                        <div class="chart-box-container">
+                            <span style="font-size: 11px; color: var(--text-muted);">Category Spending</span>
+                            <div class="chart-wrapper-el">
+                                <canvas id="categoryChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="chart-box-container">
+                            <span style="font-size: 11px; color: var(--text-muted);">Transaction Types</span>
+                            <div class="chart-wrapper-el">
+                                <canvas id="typeChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </main>
     </div>
 
-    <!-- FAB -->
     <div class="fab" onclick="openModal()">+</div>
 
-    <!-- MODAL FORM -->
     <div class="modal" id="txModal">
         <div class="modal-content">
             <div style="display:flex; justify-content:space-between; margin-bottom: 20px;">
-                <h3 style="font-weight: 500;">New Transaction</h3>
+                <h3 style="font-weight: 500;" id="modalTitleEl">New Transaction</h3>
                 <span style="cursor:pointer" onclick="closeModal()">✕</span>
             </div>
             
             <form id="txForm">
+                <input type="hidden" id="f_id">
                 <div class="form-group">
                     <label>Amount (₹) *</label>
-                    <input type="number" id="f_amount" required placeholder="0.00" onblur="checkContextualFill()">
+                    <input type="number" step="0.01" id="f_amount" required placeholder="0.00" onblur="checkContextualFill()">
                 </div>
                 <div class="form-group">
                     <label>Title</label>
@@ -274,12 +359,12 @@
                     </div>
                     <div class="form-group">
                         <label>Date</label>
-                        <input type="date" id="f_date">
+                        <input type="date" id="f_date" required>
                     </div>
                 </div>
                 <div class="form-group">
-                    <label>Category (Type new to add)</label>
-                    <input list="categoryList" id="f_category" placeholder="Select or type...">
+                    <label>Category</label>
+                    <input list="categoryList" id="f_category" placeholder="Select or type to add...">
                     <datalist id="categoryList"></datalist>
                 </div>
                 <div class="form-group">
@@ -293,96 +378,141 @@
                     </select>
                 </div>
                 <div class="form-group">
-                    <label>Location / Notes</label>
+                    <label>Location</label>
                     <input type="text" id="f_location" placeholder="Starbucks, Downtown...">
                 </div>
-                <button type="submit" class="btn-primary">Save Transaction</button>
+                <div class="form-group">
+                    <label>Notes / Remarks</label>
+                    <textarea id="f_notes" rows="2" placeholder="Write specific details here..." style="width:100%; background:var(--bg-primary); border:1px solid var(--border); color:var(--text-main); padding:10px; border-radius:var(--radius); font-family:inherit; resize: none;"></textarea>
+                </div>
+                <button type="submit" class="btn-primary" id="submitFormBtn">Save Transaction</button>
             </form>
         </div>
     </div>
 
     <script>
-        // State Management
+        // State Configuration & Backwards Compatibility
         let transactions = JSON.parse(localStorage.getItem('fin_txs')) || [
-            { id: 1, title: 'Initial Balance', amount: 5000, category: 'Income', date: '2024-05-01', method: 'Bank Transfer', type: 'Received', notes: '', location: 'Office' },
-            { id: 2, title: 'Starbucks', amount: 450, category: 'Food', date: '2024-05-28', method: 'Google Pay', type: 'Spent', notes: 'Late night latte', location: 'Cyber City' }
+            { id: 1, title: 'Initial Balance', amount: 50000, category: 'Income', date: '2026-05-01', method: 'Bank Transfer', type: 'Received', notes: 'Corporate base salary credit', location: 'Office' },
+            { id: 2, title: 'Starbucks Coffee', amount: 450, category: 'Food', date: '2026-06-02', method: 'Google Pay', type: 'Spent', notes: 'Late night double shot espresso with team', location: 'Cyber City' },
+            { id: 3, title: 'Mutual Fund SIP', amount: 5000, category: 'Investment', date: '2026-06-03', method: 'Bank Transfer', type: 'Saved', notes: 'Automated wealth index fund growth investment', location: 'Online' }
         ];
-        let budget = parseFloat(localStorage.getItem('fin_budget')) || 25000;
-        let categories = [...new Set(transactions.map(t => t.category))];
+
+        // Advanced Budget Schema Map: Key formatted as "YYYY-MM" -> standard value
+        let budgetMap = JSON.parse(localStorage.getItem('fin_budget_map')) || {};
+        
+        // Dynamic structural arrays
+        let categories = [...new Set(transactions.map(t => t.category).filter(Boolean))];
+        if(categories.length === 0) categories = ['Food', 'Income', 'Investment', 'Utilities'];
+
         let currentSort = { key: 'date', direction: 'desc' };
         let activeFilter = 'All';
+        let expandedNotes = {}; // Stores UI toggles for active notes fields
 
         // Initialize App
         function init() {
             renderTransactions();
             updateCategoryDatalist();
-            updateBudgetUI();
-            initChart();
+            buildMonthDropdownOptions();
+            initCharts();
         }
 
-        // Navigation
+        // Navigation Switcher
         function switchPage(page) {
             document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
-            event.target.classList.add('active');
             
             if (page === 'home') {
+                document.getElementById('tab-home').classList.add('active');
                 document.getElementById('home-view').style.display = 'block';
                 document.getElementById('home-controls').style.display = 'block';
                 document.getElementById('analytics-view').style.display = 'none';
                 renderTransactions();
             } else {
+                document.getElementById('tab-analytics').classList.add('active');
                 document.getElementById('home-view').style.display = 'none';
                 document.getElementById('home-controls').style.display = 'none';
                 document.getElementById('analytics-view').style.display = 'block';
+                buildMonthDropdownOptions(); // Refresh months dynamically based on potential changes
                 updateAnalytics();
             }
         }
 
-        // --- Core Logic ---
+        // --- Core Template Processing Logic ---
 
         function renderTransactions() {
             const list = document.getElementById('transactionList');
             const search = document.getElementById('globalSearch').value.toLowerCase();
             
             let filtered = transactions.filter(t => {
-                const matchesSearch = t.title.toLowerCase().includes(search) || t.notes.toLowerCase().includes(search);
+                const titleStr = (t.title || '').toLowerCase();
+                const notesStr = (t.notes || '').toLowerCase();
+                const locStr = (t.location || '').toLowerCase();
+                const catStr = (t.category || '').toLowerCase();
+                
+                const matchesSearch = titleStr.includes(search) || notesStr.includes(search) || locStr.includes(search) || catStr.includes(search);
                 const matchesCat = activeFilter === 'All' || t.category === activeFilter;
                 return matchesSearch && matchesCat;
             });
 
-            // Sorting
+            // Sorting Logic
             filtered.sort((a, b) => {
                 let valA = a[currentSort.key];
                 let valB = b[currentSort.key];
                 if (currentSort.key === 'amount') {
-                    valA = parseFloat(valA); valB = parseFloat(valB);
+                    valA = parseFloat(valA || 0); 
+                    valB = parseFloat(valB || 0);
+                }
+                if (currentSort.key === 'date') {
+                    return currentSort.direction === 'desc' ? new Date(valB) - new Date(valA) : new Date(valA) - new Date(valB);
                 }
                 return currentSort.direction === 'desc' ? (valB > valA ? 1 : -1) : (valA > valB ? 1 : -1);
             });
 
             document.getElementById('txCount').innerText = `Showing ${filtered.length} items`;
 
-            list.innerHTML = filtered.map(t => `
-                <div class="transaction-card">
-                    <div class="tx-left">
-                        <span class="tx-title">${t.title || 'Untitled'}</span>
-                        <div class="tx-sub">
-                            <span>${new Date(t.date).toLocaleDateString('en-IN', {month: 'short', day: 'numeric'})}</span>
-                            <span class="pill">${t.category}</span>
-                            <span style="font-size:10px">•</span>
-                            <span style="color:var(--text-muted)">${t.method}</span>
+            list.innerHTML = filtered.map(t => {
+                const trackingNotes = t.notes && t.notes.trim().length > 0;
+                const isExpanded = expandedNotes[t.id];
+                
+                return `
+                <div class="transaction-wrapper">
+                    <div class="transaction-card">
+                        <div class="tx-left">
+                            <span class="tx-title">
+                                ${t.title || 'Untitled'} 
+                                ${trackingNotes ? `<span style="color:var(--text-muted); cursor:pointer;" onclick="toggleNotesDrawer(${t.id})" title="View notes">📝</span>` : ''}
+                            </span>
+                            <div class="tx-sub">
+                                <span>${new Date(t.date).toLocaleDateString('en-IN', {month: 'short', day: 'numeric', year: 'numeric'})}</span>
+                                <span class="pill">${t.category || 'Uncategorized'}</span>
+                                <span style="font-size:10px">•</span>
+                                <span style="color:var(--text-muted)">${t.method}</span>
+                            </div>
+                        </div>
+                        <div class="tx-right">
+                            <div class="tx-amount ${t.type === 'Spent' || t.type === 'Withdrawn' ? 'neg' : 'pos'}">
+                                ${t.type === 'Spent' || t.type === 'Withdrawn' ? '-' : '+'}₹${Math.abs(t.amount).toLocaleString('en-IN', {minimumFractionDigits: 2})}
+                            </div>
+                            <div style="font-size:11px; color:var(--text-muted)">${t.type}</div>
                         </div>
                     </div>
-                    <div class="tx-right">
-                        <div class="tx-amount ${t.type === 'Spent' || t.type === 'Withdrawn' ? 'neg' : 'pos'}">
-                            ${t.type === 'Spent' || t.type === 'Withdrawn' ? '-' : '+'}₹${Math.abs(t.amount).toLocaleString()}
-                        </div>
-                        <div style="font-size:11px; color:var(--text-muted)">${t.type}</div>
+                    
+                    <div class="tx-actions-panel">
+                        <span class="action-link" style="color:#3498db" onclick="initiateEditTransaction(${t.id})">Edit</span>
+                        <span class="action-link" style="color:var(--spent)" onclick="deleteTransaction(${t.id})">Delete</span>
+                        ${trackingNotes ? `<span class="action-link" onclick="toggleNotesDrawer(${t.id})">${isExpanded ? 'Hide Notes' : 'Show Notes'}</span>` : ''}
                     </div>
+
+                    ${trackingNotes && isExpanded ? `<div class="notes-drawer"><strong>Notes:</strong> ${t.notes}</div>` : ''}
                 </div>
-            `).join('');
+            `}).join('');
 
             renderFilterChips();
+        }
+
+        function toggleNotesDrawer(id) {
+            expandedNotes[id] = !expandedNotes[id];
+            renderTransactions();
         }
 
         function renderFilterChips() {
@@ -405,20 +535,25 @@
                 currentSort.key = key;
                 currentSort.direction = 'desc';
             }
+            
+            // UI Updates Indicators visually
+            document.getElementById('sortDateIndicator').innerText = currentSort.key === 'date' ? `Sort by Date ${currentSort.direction === 'desc' ? '↓' : '↑'}` : 'Sort by Date';
+            document.getElementById('sortAmtIndicator').innerText = currentSort.key === 'amount' ? `Sort by Amount ${currentSort.direction === 'desc' ? '↓' : '↑'}` : 'Sort by Amount';
+            
             renderTransactions();
         }
 
-        // --- Intelligent Form Logic ---
+        // --- Persistent Engine Form Modifiers ---
 
         function openModal() {
-            const modal = document.getElementById('txModal');
-            modal.style.display = 'flex';
+            document.getElementById('modalTitleEl').innerText = "New Transaction";
+            document.getElementById('submitFormBtn').innerText = "Save Transaction";
+            document.getElementById('f_id').value = "";
+            document.getElementById('txModal').style.display = 'flex';
             
-            // 1. Auto-Focus Amount
+            // Default configuration options
             const amountInput = document.getElementById('f_amount');
             setTimeout(() => amountInput.focus(), 100);
-
-            // 2. Smart Pre-selection (Date & Frequent Method)
             document.getElementById('f_date').valueAsDate = new Date();
             
             if (transactions.length > 0) {
@@ -426,26 +561,57 @@
                 const mostFrequent = methods.sort((a,b) =>
                     methods.filter(v => v===a).length - methods.filter(v => v===b).length
                 ).pop();
-                document.getElementById('f_method').value = mostFrequent;
+                document.getElementById('f_method').value = mostFrequent || 'Credit Card';
+            }
+        }
+
+        function initiateEditTransaction(id) {
+            const tx = transactions.find(t => t.id === id);
+            if (!tx) return;
+
+            document.getElementById('modalTitleEl').innerText = "Modify Transaction";
+            document.getElementById('submitFormBtn').innerText = "Apply Updates";
+            document.getElementById('f_id').value = tx.id;
+            
+            // Populate details from state object
+            document.getElementById('f_amount').value = tx.amount;
+            document.getElementById('f_title').value = tx.title || '';
+            document.getElementById('f_type').value = tx.type || 'Spent';
+            document.getElementById('f_date').value = tx.date;
+            document.getElementById('f_category').value = tx.category || '';
+            document.getElementById('f_method').value = tx.method || 'Cash';
+            document.getElementById('f_location').value = tx.location || '';
+            document.getElementById('f_notes').value = tx.notes || '';
+
+            document.getElementById('txModal').style.display = 'flex';
+        }
+
+        function deleteTransaction(id) {
+            if(confirm("Are you sure you want to delete this record?")) {
+                transactions = transactions.filter(t => t.id !== id);
+                saveAndRecomputeState();
             }
         }
 
         function closeModal() {
             document.getElementById('txModal').style.display = 'none';
             document.getElementById('txForm').reset();
+            document.getElementById('f_id').value = "";
         }
 
-        // 3. Contextual Auto-Fill
         function checkContextualFill() {
+            // Contextual fills are skipped if editing an existing entry
+            if(document.getElementById('f_id').value !== "") return;
+
             const currentAmt = parseFloat(document.getElementById('f_amount').value);
             if (!currentAmt) return;
 
             const match = transactions.find(t => t.amount === currentAmt);
             if (match) {
-                document.getElementById('f_title').value = match.title;
-                document.getElementById('f_category').value = match.category;
-                document.getElementById('f_location').value = match.location;
-                // Visual feedback
+                document.getElementById('f_title').value = match.title || '';
+                document.getElementById('f_category').value = match.category || '';
+                document.getElementById('f_location').value = match.location || '';
+                
                 document.getElementById('f_title').style.borderColor = 'var(--received)';
                 setTimeout(() => document.getElementById('f_title').style.borderColor = 'var(--border)', 1000);
             }
@@ -454,111 +620,219 @@
         document.getElementById('txForm').onsubmit = function(e) {
             e.preventDefault();
             
-            const newCat = document.getElementById('f_category').value;
-            // 4. Dynamic Taxonomy
+            const targetId = document.getElementById('f_id').value;
+            const newCat = document.getElementById('f_category').value.trim();
+            
             if (newCat && !categories.includes(newCat)) {
                 categories.push(newCat);
                 updateCategoryDatalist();
             }
 
-            const newTx = {
-                id: Date.now(),
-                title: document.getElementById('f_title').value,
+            const payloadData = {
+                title: document.getElementById('f_title').value || 'Untitled',
                 amount: parseFloat(document.getElementById('f_amount').value),
                 category: newCat || 'Uncategorized',
                 date: document.getElementById('f_date').value,
                 method: document.getElementById('f_method').value,
                 type: document.getElementById('f_type').value,
                 location: document.getElementById('f_location').value,
-                notes: ''
+                notes: document.getElementById('f_notes').value
             };
 
-            transactions.unshift(newTx);
-            localStorage.setItem('fin_txs', JSON.stringify(transactions));
-            
-            renderTransactions();
+            if (targetId) {
+                // Edit operational pipeline execution
+                const targetIdx = transactions.findIndex(t => t.id == targetId);
+                if(targetIdx !== -1) {
+                    transactions[targetIdx] = { ...transactions[targetIdx], ...payloadData };
+                }
+            } else {
+                // Creation Operational workflow pipeline execution
+                const newTx = { id: Date.now(), ...payloadData };
+                transactions.unshift(newTx);
+            }
+
+            saveAndRecomputeState();
             closeModal();
         };
+
+        function saveAndRecomputeState() {
+            localStorage.setItem('fin_txs', JSON.stringify(transactions));
+            categories = [...new Set(transactions.map(t => t.category).filter(Boolean))];
+            if(categories.length === 0) categories = ['Food', 'Income', 'Investment', 'Utilities'];
+            updateCategoryDatalist();
+            renderTransactions();
+        }
 
         function updateCategoryDatalist() {
             const dl = document.getElementById('categoryList');
             dl.innerHTML = categories.map(c => `<option value="${c}">`).join('');
         }
 
-        // --- Analytics Logic ---
+        // --- Advanced Historical Analytics Dashboards ---
 
-        let myChart;
-        function updateAnalytics() {
-            const now = new Date();
-            const currentMonth = now.getMonth();
-            const currentYear = now.getFullYear();
+        function buildMonthDropdownOptions() {
+            const selectEl = document.getElementById('analyticsMonthPicker');
+            const savedSelectedVal = selectEl.value; // Cache value if exists to protect continuity
 
-            const thisMonthTxs = transactions.filter(t => {
+            // Extrapolate list of structural historical operational processing ranges
+            let processingDates = transactions.map(t => {
                 const d = new Date(t.date);
-                return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+                if(isNaN(d.getTime())) return null;
+                return { yr: d.getFullYear(), mo: d.getMonth() };
+            }).filter(Boolean);
+
+            // Ensure current system calendar runtime timestamp metrics are loaded as baseline alternatives
+            const currentSysDate = new Date();
+            processingDates.push({ yr: currentSysDate.getFullYear(), mo: currentSysDate.getMonth() });
+
+            // De-duplicate dates unique records lists
+            let uniquelyMappedMonths = [];
+            let keyMapCheck = {};
+            processingDates.forEach(item => {
+                let combinedStrKey = `${item.yr}-${String(item.mo + 1).padStart(2, '0')}`;
+                if(!keyMapCheck[combinedStrKey]) {
+                    keyMapCheck[combinedStrKey] = true;
+                    uniquelyMappedMonths.push({ key: combinedStrKey, label: new Date(item.yr, item.mo).toLocaleDateString('en-US', {month: 'long', year: 'numeric'}) });
+                }
             });
 
-            const spent = thisMonthTxs
-                .filter(t => t.type === 'Spent' || t.type === 'Withdrawn')
-                .reduce((sum, t) => sum + t.amount, 0);
+            // Order chronological items reverse descending sequence format parameters
+            uniquelyMappedMonths.sort((a,b) => b.key.localeCompare(a.key));
+
+            selectEl.innerHTML = uniquelyMappedMonths.map(m => `<option value="${m.key}">${m.label}</option>`).join('');
             
-            const saved = thisMonthTxs
-                .filter(t => t.type === 'Saved')
-                .reduce((sum, t) => sum + t.amount, 0);
-
-            // Update Budget UI
-            document.getElementById('budgetStatus').innerText = `₹${spent.toLocaleString()} / ₹${budget.toLocaleString()}`;
-            const perc = Math.min((spent / budget) * 100, 100);
-            document.getElementById('budgetFill').style.width = perc + '%';
-            document.getElementById('budgetFill').style.background = perc > 90 ? 'var(--spent)' : 'var(--text-muted)';
-
-            document.getElementById('savingsMetric').innerText = `₹${saved.toLocaleString()}`;
-
-            // Chart Data
-            const catData = {};
-            thisMonthTxs.filter(t => t.type === 'Spent').forEach(t => {
-                catData[t.category] = (catData[t.category] || 0) + t.amount;
-            });
-
-            updateChart(catData);
+            if(savedSelectedVal && selectEl.querySelector(`option[value="${savedSelectedVal}"]`)) {
+                selectEl.value = savedSelectedVal;
+            }
         }
 
-        function initChart() {
-            const ctx = document.getElementById('categoryChart').getContext('2d');
-            myChart = new Chart(ctx, {
-                type: 'doughnut',
+        let catChartObj;
+        let typeChartObj;
+
+        function initCharts() {
+            const ctxCat = document.getElementById('categoryChart').getContext('2d');
+            catChartObj = new Chart(ctxCat, {
+                type: 'pie',
                 data: {
                     labels: [],
                     datasets: [{
                         data: [],
-                        backgroundColor: ['#2f2f2f', '#444444', '#555555', '#666666', '#888888'],
-                        borderWidth: 0,
-                        hoverOffset: 4
+                        backgroundColor: ['#eb5757', '#27ae60', '#2f3542', '#3498db', '#f1c40f', '#9b59b6', '#e67e22', '#1abc9c'],
+                        borderWidth: 1,
+                        borderColor: '#202020'
                     }]
                 },
                 options: {
-                    cutout: '70%',
-                    plugins: { legend: { position: 'bottom', labels: { color: '#8F8F8F', usePointStyle: true } } }
+                    plugins: { legend: { display: true, position: 'bottom', labels: { color: '#8F8F8F', boxWidth: 10, font: { size: 10 } } } }
+                }
+            });
+
+            const ctxType = document.getElementById('typeChart').getContext('2d');
+            typeChartObj = new Chart(ctxType, {
+                type: 'pie',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        data: [],
+                        backgroundColor: ['#eb5757', '#27ae60', '#3498db', '#e67e22'],
+                        borderWidth: 1,
+                        borderColor: '#202020'
+                    }]
+                },
+                options: {
+                    plugins: { legend: { display: true, position: 'bottom', labels: { color: '#8F8F8F', boxWidth: 10, font: { size: 10 } } } }
                 }
             });
         }
 
-        function updateChart(data) {
-            myChart.data.labels = Object.keys(data);
-            myChart.data.datasets[0].data = Object.values(data);
-            myChart.update();
+        function updateAnalytics() {
+            const targetedMonthKey = document.getElementById('analyticsMonthPicker').value; // Formatted as "YYYY-MM"
+            if(!targetedMonthKey) return;
+
+            const parts = targetedMonthKey.split('-');
+            const targetYear = parseInt(parts[0]);
+            const targetMonth = parseInt(parts[1]) - 1; // standard system structural bounds adjustment
+
+            // Isolating filtering items records matching chosen monthly profile bounds settings values
+            const monthlyTransactionsGroup = transactions.filter(t => {
+                const d = new Date(t.date);
+                return d.getMonth() === targetMonth && d.getFullYear() === targetYear;
+            });
+
+            // Summary Math calculations computation
+            const totalSpent = monthlyTransactionsGroup
+                .filter(t => t.type === 'Spent' || t.type === 'Withdrawn')
+                .reduce((sum, t) => sum + parseFloat(t.amount || 0), 0);
+            
+            const totalInflow = monthlyTransactionsGroup
+                .filter(t => t.type === 'Received')
+                .reduce((sum, t) => sum + parseFloat(t.amount || 0), 0);
+
+            const totalSaved = monthlyTransactionsGroup
+                .filter(t => t.type === 'Saved')
+                .reduce((sum, t) => sum + parseFloat(t.amount || 0), 0);
+
+            // Fetch configured dynamic allocation budget from historic tracking dictionary database registry bounds
+            const activeHistoricalBudget = budgetMap[targetedMonthKey] !== undefined ? budgetMap[targetedMonthKey] : 25000;
+
+            // UI Card Components updates rendered configuration values mappings
+            document.getElementById('budgetStatus').innerText = `₹${totalSpent.toLocaleString('en-IN', {minimumFractionDigits: 2})} / ₹${activeHistoricalBudget.toLocaleString('en-IN')}`;
+            document.getElementById('inflowMetric').innerText = `₹${totalInflow.toLocaleString('en-IN', {minimumFractionDigits: 2})}`;
+            document.getElementById('savingsMetric').innerText = `₹${totalSaved.toLocaleString('en-IN', {minimumFractionDigits: 2})}`;
+
+            // Adjust graphical structural display status calculations layout matrices parameters
+            const fillPercentage = activeHistoricalBudget > 0 ? Math.min((totalSpent / activeHistoricalBudget) * 100, 100) : 0;
+            const progressFillEl = document.getElementById('budgetFill');
+            progressFillEl.style.width = fillPercentage + '%';
+            progressFillEl.style.background = fillPercentage > 90 ? 'var(--spent)' : (fillPercentage > 50 ? '#f1c40f' : 'var(--received)');
+
+            // Recalculating Distribution Map Analytics Data Collections metrics profiles structures
+            const categoryDataStructureMap = {};
+            const typeDataStructureMap = { 'Spent': 0, 'Received': 0, 'Saved': 0, 'Withdrawn': 0 };
+
+            monthlyTransactionsGroup.forEach(t => {
+                // Breakdown structure mapping values logs settings tracking array arrays items rules
+                typeDataStructureMap[t.type] = (typeDataStructureMap[t.type] || 0) + parseFloat(t.amount || 0);
+                
+                // Track category specifics matching spending parameters arrays collections metrics limits
+                if(t.type === 'Spent' || t.type === 'Withdrawn') {
+                    const trackingCatLabel = t.category || 'Uncategorized';
+                    categoryDataStructureMap[trackingCatLabel] = (categoryDataStructureMap[trackingCatLabel] || 0) + parseFloat(t.amount || 0);
+                }
+            });
+
+            // Re-render structural Category pie distribution components configurations properties layout
+            catChartObj.data.labels = Object.keys(categoryDataStructureMap);
+            catChartObj.data.datasets[0].data = Object.values(categoryDataStructureMap);
+            catChartObj.update();
+
+            // Re-render structural Type actions metrics configuration system details
+            typeChartObj.data.labels = Object.keys(typeDataStructureMap).filter(k => typeDataStructureMap[k] > 0);
+            typeChartObj.data.datasets[0].data = Object.values(typeDataStructureMap).filter(v => v > 0);
+            typeChartObj.update();
         }
 
         function setBudget() {
-            const b = prompt("Enter monthly budget:", budget);
-            if (b) {
-                budget = parseFloat(b);
-                localStorage.setItem('fin_budget', budget);
-                updateAnalytics();
+            const targetedMonthKey = document.getElementById('analyticsMonthPicker').value;
+            if(!targetedMonthKey) return;
+
+            const existingBudgetAmt = budgetMap[targetedMonthKey] !== undefined ? budgetMap[targetedMonthKey] : 25000;
+            
+            const alternativeEntryInput = prompt(`Specify the financial layout budget target allocations cap for the selected month (${targetedMonthKey}):`, existingBudgetAmt);
+            
+            if (alternativeEntryInput !== null) {
+                const validatedFloatNum = parseFloat(alternativeEntryInput);
+                if(!isNaN(validatedFloatNum) && validatedFloatNum >= 0) {
+                    budgetMap[targetedMonthKey] = validatedFloatNum;
+                    localStorage.setItem('fin_budget_map', JSON.stringify(budgetMap));
+                    updateAnalytics();
+                } else {
+                    alert("Please provide a valid non-negative numerical threshold execution sequence.");
+                }
             }
         }
 
-        // Initialize on load
+        // Run primary Initialization engine upon loading execution thread
         window.onload = init;
     </script>
 </body>
