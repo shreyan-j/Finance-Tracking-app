@@ -58,11 +58,21 @@
             color: white;
             margin-bottom: 12px;
         }
+        
+        .filter-label-ui {
+            font-size: 11px;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin: 6px 0 4px 2px;
+            letter-spacing: 0.5px;
+        }
+
         .filter-bar {
             display: flex;
             gap: 8px;
             overflow-x: auto;
             padding-bottom: 8px;
+            margin-bottom: 4px;
             scrollbar-width: none;
         }
         .filter-bar::-webkit-scrollbar { display: none; }
@@ -74,8 +84,9 @@
             font-size: 12px;
             white-space: nowrap;
             cursor: pointer;
+            color: var(--text-muted);
         }
-        .filter-chip.active { background: var(--text-main); color: var(--bg-primary); }
+        .filter-chip.active { background: var(--text-main); color: var(--bg-primary); font-weight: 500; }
 
         /* Transaction List */
         .transaction-wrapper {
@@ -263,9 +274,21 @@
 
             <div id="home-controls">
                 <input type="text" class="search-box" id="globalSearch" placeholder="Search title, notes, location..." oninput="renderTransactions()">
+                
+                <div class="filter-label-ui">Filter By Type</div>
+                <div class="filter-bar" id="typeFilters">
+                    <div class="filter-chip active" onclick="setTypeFilter('All', this)">All Types</div>
+                    <div class="filter-chip" onclick="setTypeFilter('Spent', this)">Spent</div>
+                    <div class="filter-chip" onclick="setTypeFilter('Received', this)">Received</div>
+                    <div class="filter-chip" onclick="setTypeFilter('Saved', this)">Savings</div>
+                    <div class="filter-chip" onclick="setTypeFilter('Withdrawn', this)">Withdrawn</div>
+                </div>
+
+                <div class="filter-label-ui">Filter By Category</div>
                 <div class="filter-bar" id="categoryFilters">
                     </div>
-                <div style="display: flex; justify-content: space-between; margin-top: 10px;">
+
+                <div style="display: flex; justify-content: space-between; margin-top: 14px; border-top: 1px dashed var(--border); padding-top: 10px;">
                     <span style="font-size: 12px; color: var(--text-muted);" id="txCount">Showing 0 items</span>
                     <div style="display: flex; gap: 10px;">
                         <span class="pill" id="sortDateIndicator" style="cursor:pointer" onclick="toggleSort('date')">Sort by Date ↓</span>
@@ -363,7 +386,7 @@
                     </div>
                 </div>
                 <div class="form-group">
-                    <label>Category</label>
+                    <label>Category (Leave empty to auto-use most frequent category)</label>
                     <input list="categoryList" id="f_category" placeholder="Select or type to add...">
                     <datalist id="categoryList"></datalist>
                 </div>
@@ -391,33 +414,74 @@
     </div>
 
     <script>
-        // State Configuration & Backwards Compatibility
-        let transactions = JSON.parse(localStorage.getItem('fin_txs')) || [
-            { id: 1, title: 'Initial Balance', amount: 50000, category: 'Income', date: '2026-05-01', method: 'Bank Transfer', type: 'Received', notes: 'Corporate base salary credit', location: 'Office' },
-            { id: 2, title: 'Starbucks Coffee', amount: 450, category: 'Food', date: '2026-06-02', method: 'Google Pay', type: 'Spent', notes: 'Late night double shot espresso with team', location: 'Cyber City' },
-            { id: 3, title: 'Mutual Fund SIP', amount: 5000, category: 'Investment', date: '2026-06-03', method: 'Bank Transfer', type: 'Saved', notes: 'Automated wealth index fund growth investment', location: 'Online' }
-        ];
+        // Formatter function to enforce Capitalization on first letters and lower-case the remaining parts
+        function sanitizeCategoryName(rawInput) {
+            if (!rawInput || rawInput.trim() === '') return '';
+            const cleaned = rawInput.trim();
+            return cleaned.charAt(0).toUpperCase() + cleaned.slice(1).toLowerCase();
+        }
 
-        // Advanced Budget Schema Map: Key formatted as "YYYY-MM" -> standard value
+        // Initialize App State Configuration with Sanitized Base Keys
+        let rawStoredTxs = JSON.parse(localStorage.getItem('fin_txs'));
+        let transactions = [];
+        
+        if (rawStoredTxs && rawStoredTxs.length > 0) {
+            transactions = rawStoredTxs.map(t => {
+                t.category = sanitizeCategoryName(t.category);
+                return t;
+            });
+        } else {
+            transactions = [
+                { id: 1, title: 'Initial Balance', amount: 50000, category: 'Income', date: '2026-05-01', method: 'Bank Transfer', type: 'Received', notes: 'Corporate base salary credit', location: 'Office' },
+                { id: 2, title: 'Starbucks Coffee', amount: 450, category: 'Food', date: '2026-06-02', method: 'Google Pay', type: 'Spent', notes: 'Late night double shot espresso with team', location: 'Cyber City' },
+                { id: 3, title: 'Mutual Fund SIP', amount: 5000, category: 'Investment', date: '2026-06-03', method: 'Bank Transfer', type: 'Saved', notes: 'Automated wealth index fund growth investment', location: 'Online' }
+            ];
+        }
+
         let budgetMap = JSON.parse(localStorage.getItem('fin_budget_map')) || {};
         
-        // Dynamic structural arrays
-        let categories = [...new Set(transactions.map(t => t.category).filter(Boolean))];
-        if(categories.length === 0) categories = ['Food', 'Income', 'Investment', 'Utilities'];
-
+        // Configuration state filters
         let currentSort = { key: 'date', direction: 'desc' };
-        let activeFilter = 'All';
-        let expandedNotes = {}; // Stores UI toggles for active notes fields
+        let activeCategoryFilter = 'All';
+        let activeTypeFilter = 'All'; // Dual filtering dimension tracker
+        let expandedNotes = {}; 
+        let categories = [];
+
+        // --- Core Utility: Compute Category Frequencies ---
+        function getMostUsedCategory() {
+            if (transactions.length === 0) return 'Uncategorized';
+            const frequencies = {};
+            let maxCount = 0;
+            let mostFrequent = 'Uncategorized';
+
+            transactions.forEach(t => {
+                if (t.category && t.category.trim() !== '') {
+                    const normalized = sanitizeCategoryName(t.category);
+                    frequencies[normalized] = (frequencies[normalized] || 0) + 1;
+                    if (frequencies[normalized] > maxCount) {
+                        maxCount = frequencies[normalized];
+                        mostFrequent = normalized;
+                    }
+                }
+            });
+            return mostFrequent;
+        }
+
+        function refreshCategoryList() {
+            categories = [...new Set(transactions.map(t => sanitizeCategoryName(t.category)).filter(Boolean))];
+            if (categories.length === 0) categories = ['Food', 'Income', 'Investment', 'Utilities'];
+        }
 
         // Initialize App
         function init() {
+            refreshCategoryList();
             renderTransactions();
             updateCategoryDatalist();
             buildMonthDropdownOptions();
             initCharts();
         }
 
-        // Navigation Switcher
+        // Page Navigation
         function switchPage(page) {
             document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
             
@@ -432,12 +496,12 @@
                 document.getElementById('home-view').style.display = 'none';
                 document.getElementById('home-controls').style.display = 'none';
                 document.getElementById('analytics-view').style.display = 'block';
-                buildMonthDropdownOptions(); // Refresh months dynamically based on potential changes
+                buildMonthDropdownOptions();
                 updateAnalytics();
             }
         }
 
-        // --- Core Template Processing Logic ---
+        // --- Core Template Processing Logic with Dual Filters ---
 
         function renderTransactions() {
             const list = document.getElementById('transactionList');
@@ -450,8 +514,14 @@
                 const catStr = (t.category || '').toLowerCase();
                 
                 const matchesSearch = titleStr.includes(search) || notesStr.includes(search) || locStr.includes(search) || catStr.includes(search);
-                const matchesCat = activeFilter === 'All' || t.category === activeFilter;
-                return matchesSearch && matchesCat;
+                
+                // Case Insensitive Match for Category filter mapping
+                const matchesCat = activeCategoryFilter === 'All' || sanitizeCategoryName(t.category) === sanitizeCategoryName(activeCategoryFilter);
+                
+                // Match for Transaction Type filter configuration mapping
+                const matchesType = activeTypeFilter === 'All' || t.type === activeTypeFilter;
+                
+                return matchesSearch && matchesCat && matchesType;
             });
 
             // Sorting Logic
@@ -484,7 +554,7 @@
                             </span>
                             <div class="tx-sub">
                                 <span>${new Date(t.date).toLocaleDateString('en-IN', {month: 'short', day: 'numeric', year: 'numeric'})}</span>
-                                <span class="pill">${t.category || 'Uncategorized'}</span>
+                                <span class="pill">${sanitizeCategoryName(t.category) || 'Uncategorized'}</span>
                                 <span style="font-size:10px">•</span>
                                 <span style="color:var(--text-muted)">${t.method}</span>
                             </div>
@@ -518,13 +588,22 @@
         function renderFilterChips() {
             const bar = document.getElementById('categoryFilters');
             const cats = ['All', ...categories];
-            bar.innerHTML = cats.map(c => `
-                <div class="filter-chip ${activeFilter === c ? 'active' : ''}" onclick="setFilter('${c}')">${c}</div>
-            `).join('');
+            bar.innerHTML = cats.map(c => {
+                const standardizedName = sanitizeCategoryName(c);
+                return `<div class="filter-chip ${activeCategoryFilter === standardizedName ? 'active' : ''}" onclick="setCategoryFilter('${standardizedName}')">${standardizedName}</div>`;
+            }).join('');
         }
 
-        function setFilter(c) {
-            activeFilter = c;
+        function setCategoryFilter(c) {
+            activeCategoryFilter = c;
+            renderTransactions();
+        }
+
+        function setTypeFilter(type, chipEl) {
+            activeTypeFilter = type;
+            // Update active states visual representation
+            document.querySelectorAll('#typeFilters .filter-chip').forEach(el => el.classList.remove('active'));
+            chipEl.classList.add('active');
             renderTransactions();
         }
 
@@ -536,14 +615,13 @@
                 currentSort.direction = 'desc';
             }
             
-            // UI Updates Indicators visually
             document.getElementById('sortDateIndicator').innerText = currentSort.key === 'date' ? `Sort by Date ${currentSort.direction === 'desc' ? '↓' : '↑'}` : 'Sort by Date';
             document.getElementById('sortAmtIndicator').innerText = currentSort.key === 'amount' ? `Sort by Amount ${currentSort.direction === 'desc' ? '↓' : '↑'}` : 'Sort by Amount';
             
             renderTransactions();
         }
 
-        // --- Persistent Engine Form Modifiers ---
+        // --- Form Handler Persistent Modifiers ---
 
         function openModal() {
             document.getElementById('modalTitleEl').innerText = "New Transaction";
@@ -551,7 +629,6 @@
             document.getElementById('f_id').value = "";
             document.getElementById('txModal').style.display = 'flex';
             
-            // Default configuration options
             const amountInput = document.getElementById('f_amount');
             setTimeout(() => amountInput.focus(), 100);
             document.getElementById('f_date').valueAsDate = new Date();
@@ -573,12 +650,11 @@
             document.getElementById('submitFormBtn').innerText = "Apply Updates";
             document.getElementById('f_id').value = tx.id;
             
-            // Populate details from state object
             document.getElementById('f_amount').value = tx.amount;
             document.getElementById('f_title').value = tx.title || '';
             document.getElementById('f_type').value = tx.type || 'Spent';
             document.getElementById('f_date').value = tx.date;
-            document.getElementById('f_category').value = tx.category || '';
+            document.getElementById('f_category').value = sanitizeCategoryName(tx.category) || '';
             document.getElementById('f_method').value = tx.method || 'Cash';
             document.getElementById('f_location').value = tx.location || '';
             document.getElementById('f_notes').value = tx.notes || '';
@@ -600,7 +676,6 @@
         }
 
         function checkContextualFill() {
-            // Contextual fills are skipped if editing an existing entry
             if(document.getElementById('f_id').value !== "") return;
 
             const currentAmt = parseFloat(document.getElementById('f_amount').value);
@@ -609,7 +684,7 @@
             const match = transactions.find(t => t.amount === currentAmt);
             if (match) {
                 document.getElementById('f_title').value = match.title || '';
-                document.getElementById('f_category').value = match.category || '';
+                document.getElementById('f_category').value = sanitizeCategoryName(match.category) || '';
                 document.getElementById('f_location').value = match.location || '';
                 
                 document.getElementById('f_title').style.borderColor = 'var(--received)';
@@ -621,17 +696,19 @@
             e.preventDefault();
             
             const targetId = document.getElementById('f_id').value;
-            const newCat = document.getElementById('f_category').value.trim();
+            let finalCategory = document.getElementById('f_category').value.trim();
             
-            if (newCat && !categories.includes(newCat)) {
-                categories.push(newCat);
-                updateCategoryDatalist();
+            // Auto Fallback Engine: If empty, pick the most used tracking category
+            if (!finalCategory || finalCategory === '') {
+                finalCategory = getMostUsedCategory();
+            } else {
+                finalCategory = sanitizeCategoryName(finalCategory);
             }
 
             const payloadData = {
                 title: document.getElementById('f_title').value || 'Untitled',
                 amount: parseFloat(document.getElementById('f_amount').value),
-                category: newCat || 'Uncategorized',
+                category: finalCategory,
                 date: document.getElementById('f_date').value,
                 method: document.getElementById('f_method').value,
                 type: document.getElementById('f_type').value,
@@ -640,13 +717,11 @@
             };
 
             if (targetId) {
-                // Edit operational pipeline execution
                 const targetIdx = transactions.findIndex(t => t.id == targetId);
                 if(targetIdx !== -1) {
                     transactions[targetIdx] = { ...transactions[targetIdx], ...payloadData };
                 }
             } else {
-                // Creation Operational workflow pipeline execution
                 const newTx = { id: Date.now(), ...payloadData };
                 transactions.unshift(newTx);
             }
@@ -657,35 +732,31 @@
 
         function saveAndRecomputeState() {
             localStorage.setItem('fin_txs', JSON.stringify(transactions));
-            categories = [...new Set(transactions.map(t => t.category).filter(Boolean))];
-            if(categories.length === 0) categories = ['Food', 'Income', 'Investment', 'Utilities'];
+            refreshCategoryList();
             updateCategoryDatalist();
             renderTransactions();
         }
 
         function updateCategoryDatalist() {
             const dl = document.getElementById('categoryList');
-            dl.innerHTML = categories.map(c => `<option value="${c}">`).join('');
+            dl.innerHTML = categories.map(c => `<option value="${sanitizeCategoryName(c)}">`).join('');
         }
 
-        // --- Advanced Historical Analytics Dashboards ---
+        // --- Advanced Analytics Core Engine ---
 
         function buildMonthDropdownOptions() {
             const selectEl = document.getElementById('analyticsMonthPicker');
-            const savedSelectedVal = selectEl.value; // Cache value if exists to protect continuity
+            const savedSelectedVal = selectEl.value; 
 
-            // Extrapolate list of structural historical operational processing ranges
             let processingDates = transactions.map(t => {
                 const d = new Date(t.date);
                 if(isNaN(d.getTime())) return null;
                 return { yr: d.getFullYear(), mo: d.getMonth() };
             }).filter(Boolean);
 
-            // Ensure current system calendar runtime timestamp metrics are loaded as baseline alternatives
             const currentSysDate = new Date();
             processingDates.push({ yr: currentSysDate.getFullYear(), mo: currentSysDate.getMonth() });
 
-            // De-duplicate dates unique records lists
             let uniquelyMappedMonths = [];
             let keyMapCheck = {};
             processingDates.forEach(item => {
@@ -696,9 +767,7 @@
                 }
             });
 
-            // Order chronological items reverse descending sequence format parameters
             uniquelyMappedMonths.sort((a,b) => b.key.localeCompare(a.key));
-
             selectEl.innerHTML = uniquelyMappedMonths.map(m => `<option value="${m.key}">${m.label}</option>`).join('');
             
             if(savedSelectedVal && selectEl.querySelector(`option[value="${savedSelectedVal}"]`)) {
@@ -746,20 +815,18 @@
         }
 
         function updateAnalytics() {
-            const targetedMonthKey = document.getElementById('analyticsMonthPicker').value; // Formatted as "YYYY-MM"
+            const targetedMonthKey = document.getElementById('analyticsMonthPicker').value; 
             if(!targetedMonthKey) return;
 
             const parts = targetedMonthKey.split('-');
             const targetYear = parseInt(parts[0]);
-            const targetMonth = parseInt(parts[1]) - 1; // standard system structural bounds adjustment
+            const targetMonth = parseInt(parts[1]) - 1; 
 
-            // Isolating filtering items records matching chosen monthly profile bounds settings values
             const monthlyTransactionsGroup = transactions.filter(t => {
                 const d = new Date(t.date);
                 return d.getMonth() === targetMonth && d.getFullYear() === targetYear;
             });
 
-            // Summary Math calculations computation
             const totalSpent = monthlyTransactionsGroup
                 .filter(t => t.type === 'Spent' || t.type === 'Withdrawn')
                 .reduce((sum, t) => sum + parseFloat(t.amount || 0), 0);
@@ -772,41 +839,33 @@
                 .filter(t => t.type === 'Saved')
                 .reduce((sum, t) => sum + parseFloat(t.amount || 0), 0);
 
-            // Fetch configured dynamic allocation budget from historic tracking dictionary database registry bounds
             const activeHistoricalBudget = budgetMap[targetedMonthKey] !== undefined ? budgetMap[targetedMonthKey] : 25000;
 
-            // UI Card Components updates rendered configuration values mappings
             document.getElementById('budgetStatus').innerText = `₹${totalSpent.toLocaleString('en-IN', {minimumFractionDigits: 2})} / ₹${activeHistoricalBudget.toLocaleString('en-IN')}`;
             document.getElementById('inflowMetric').innerText = `₹${totalInflow.toLocaleString('en-IN', {minimumFractionDigits: 2})}`;
             document.getElementById('savingsMetric').innerText = `₹${totalSaved.toLocaleString('en-IN', {minimumFractionDigits: 2})}`;
 
-            // Adjust graphical structural display status calculations layout matrices parameters
             const fillPercentage = activeHistoricalBudget > 0 ? Math.min((totalSpent / activeHistoricalBudget) * 100, 100) : 0;
             const progressFillEl = document.getElementById('budgetFill');
             progressFillEl.style.width = fillPercentage + '%';
             progressFillEl.style.background = fillPercentage > 90 ? 'var(--spent)' : (fillPercentage > 50 ? '#f1c40f' : 'var(--received)');
 
-            // Recalculating Distribution Map Analytics Data Collections metrics profiles structures
             const categoryDataStructureMap = {};
             const typeDataStructureMap = { 'Spent': 0, 'Received': 0, 'Saved': 0, 'Withdrawn': 0 };
 
             monthlyTransactionsGroup.forEach(t => {
-                // Breakdown structure mapping values logs settings tracking array arrays items rules
                 typeDataStructureMap[t.type] = (typeDataStructureMap[t.type] || 0) + parseFloat(t.amount || 0);
                 
-                // Track category specifics matching spending parameters arrays collections metrics limits
                 if(t.type === 'Spent' || t.type === 'Withdrawn') {
-                    const trackingCatLabel = t.category || 'Uncategorized';
+                    const trackingCatLabel = sanitizeCategoryName(t.category) || 'Uncategorized';
                     categoryDataStructureMap[trackingCatLabel] = (categoryDataStructureMap[trackingCatLabel] || 0) + parseFloat(t.amount || 0);
                 }
             });
 
-            // Re-render structural Category pie distribution components configurations properties layout
             catChartObj.data.labels = Object.keys(categoryDataStructureMap);
             catChartObj.data.datasets[0].data = Object.values(categoryDataStructureMap);
             catChartObj.update();
 
-            // Re-render structural Type actions metrics configuration system details
             typeChartObj.data.labels = Object.keys(typeDataStructureMap).filter(k => typeDataStructureMap[k] > 0);
             typeChartObj.data.datasets[0].data = Object.values(typeDataStructureMap).filter(v => v > 0);
             typeChartObj.update();
@@ -817,8 +876,7 @@
             if(!targetedMonthKey) return;
 
             const existingBudgetAmt = budgetMap[targetedMonthKey] !== undefined ? budgetMap[targetedMonthKey] : 25000;
-            
-            const alternativeEntryInput = prompt(`Specify the financial layout budget target allocations cap for the selected month (${targetedMonthKey}):`, existingBudgetAmt);
+            const alternativeEntryInput = prompt(`Specify the monthly tracking budget threshold cap for (${targetedMonthKey}):`, existingBudgetAmt);
             
             if (alternativeEntryInput !== null) {
                 const validatedFloatNum = parseFloat(alternativeEntryInput);
@@ -827,12 +885,11 @@
                     localStorage.setItem('fin_budget_map', JSON.stringify(budgetMap));
                     updateAnalytics();
                 } else {
-                    alert("Please provide a valid non-negative numerical threshold execution sequence.");
+                    alert("Please provide a valid non-negative numerical limit.");
                 }
             }
         }
 
-        // Run primary Initialization engine upon loading execution thread
         window.onload = init;
     </script>
 </body>
