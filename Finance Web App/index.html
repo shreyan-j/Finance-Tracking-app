@@ -18,6 +18,7 @@
             --received: #27ae60;
             --radius: 6px;
             --font: "inter", system-ui, -apple-system, sans-serif;
+            --transition: cubic-bezier(0.4, 0, 0.2, 1) 0.2s;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -44,8 +45,9 @@
             color: var(--text-muted);
             cursor: pointer;
             font-weight: 500;
-            transition: 0.2s;
+            transition: var(--transition);
         }
+        .nav-tab:hover { color: var(--text-main); }
         .nav-tab.active { color: var(--text-main); border-bottom: 2px solid var(--text-main); }
 
         /* Search & Filters */
@@ -57,7 +59,9 @@
             width: 100%;
             color: white;
             margin-bottom: 12px;
+            transition: var(--transition);
         }
+        .search-box:focus { border-color: var(--text-muted); }
         
         .filter-label-ui {
             font-size: 11px;
@@ -85,8 +89,11 @@
             white-space: nowrap;
             cursor: pointer;
             color: var(--text-muted);
+            transition: var(--transition);
         }
-        .filter-chip.active { background: var(--text-main); color: var(--bg-primary); font-weight: 500; }
+        .filter-chip:hover { border-color: var(--text-muted); color: var(--text-main); }
+        .filter-chip.active { background: var(--text-main); color: var(--bg-primary); font-weight: 500; border-color: var(--text-main); }
+        .filter-chip:active { transform: scale(0.96); }
 
         /* Transaction List */
         .transaction-wrapper {
@@ -117,6 +124,7 @@
             color: var(--text-muted);
             cursor: pointer;
             text-decoration: none;
+            transition: var(--transition);
         }
         .action-link:hover {
             color: var(--text-main);
@@ -140,6 +148,15 @@
             font-weight: 500;
             background: rgba(255,255,255,0.05);
             color: var(--text-muted);
+            transition: var(--transition);
+        }
+        .pill[style*="cursor:pointer"]:hover, .pill[style*="cursor: pointer"]:hover {
+            background: rgba(255,255,255,0.15) !important;
+            color: var(--text-main) !important;
+            transform: translateY(-1px);
+        }
+        .pill[style*="cursor:pointer"]:active, .pill[style*="cursor: pointer"]:active {
+            transform: translateY(0) scale(0.97);
         }
 
         /* Modal / Form */
@@ -151,6 +168,7 @@
             z-index: 1000;
             justify-content: center;
             align-items: center;
+            backdrop-filter: blur(4px);
         }
         .modal-content {
             background: var(--bg-secondary);
@@ -160,6 +178,8 @@
             padding: 24px;
             max-height: 90vh;
             overflow-y: auto;
+            border: 1px solid var(--border);
+            animation: modalSlideUp 0.25s cubic-bezier(0.4, 0, 0.2, 1);
         }
         .form-group { margin-bottom: 16px; }
         label { display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 4px; }
@@ -171,6 +191,10 @@
             padding: 10px;
             border-radius: var(--radius);
             outline: none;
+            transition: var(--transition);
+        }
+        input:focus, select:focus, textarea:focus {
+            border-color: var(--text-muted);
         }
         .btn-primary {
             background: #E3E3E3;
@@ -181,6 +205,34 @@
             border-radius: var(--radius);
             font-weight: 600;
             cursor: pointer;
+            transition: var(--transition);
+        }
+        .btn-primary:hover {
+            background: #ffffff;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(255,255,255,0.1);
+        }
+        .btn-primary:active {
+            transform: translateY(0) scale(0.98);
+        }
+        
+        .btn-secondary {
+            background: transparent;
+            color: var(--text-muted);
+            border: 1px solid var(--border);
+            padding: 12px;
+            width: 100%;
+            border-radius: var(--radius);
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+        .btn-secondary:hover {
+            color: var(--text-main);
+            border-color: var(--text-muted);
+        }
+        .btn-secondary:active {
+            transform: scale(0.98);
         }
 
         /* Analytics Dashboard View */
@@ -199,13 +251,20 @@
             cursor: pointer;
             width: auto;
             font-weight: 500;
+            transition: var(--transition);
         }
+        .month-dropdown:hover { border-color: var(--text-muted); }
         .analytics-grid { display: grid; gap: 20px; }
         .stat-card {
             background: var(--bg-secondary);
             padding: 20px;
             border-radius: 8px;
             border: 1px solid var(--border);
+            transition: var(--transition);
+        }
+        .stat-card:hover {
+            border-color: rgba(255,255,255,0.08);
+            transform: translateY(-2px);
         }
         .budget-progress {
             height: 8px;
@@ -221,7 +280,13 @@
             grid-template-columns: 1fr 1fr;
             gap: 15px;
         }
-        @media(max-width: 550px) {
+        .metrics-three-split {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 15px;
+        }
+        @media(max-width: 600px) {
+            .metrics-three-split { grid-template-columns: 1fr; gap: 10px; }
             .charts-row-split { grid-template-columns: 1fr; }
         }
 
@@ -254,9 +319,19 @@
             cursor: pointer;
             box-shadow: 0 4px 20px rgba(0,0,0,0.4);
             z-index: 99;
+            transition: var(--transition);
+        }
+        .fab:hover {
+            background: #ffffff;
+            transform: scale(1.06) translateY(-2px);
+            box-shadow: 0 6px 24px rgba(255,255,255,0.15);
+        }
+        .fab:active {
+            transform: scale(0.95) translateY(0);
         }
 
         @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes modalSlideUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
 
         /* Custom scrollbar */
         ::-webkit-scrollbar { width: 6px; height: 6px; }
@@ -275,7 +350,7 @@
             <div id="home-controls">
                 <input type="text" class="search-box" id="globalSearch" placeholder="Search title, notes, location..." oninput="renderTransactions()">
                 
-                <!-- <div class="filter-label-ui">Filter By Type</div> -->
+                <div class="filter-label-ui">Filter By Type</div>
                 <div class="filter-bar" id="typeFilters">
                     <div class="filter-chip active" onclick="setTypeFilter('All', this)">All Types</div>
                     <div class="filter-chip" onclick="setTypeFilter('Spent', this)">Spent</div>
@@ -284,15 +359,18 @@
                     <div class="filter-chip" onclick="setTypeFilter('Withdrawn', this)">Withdrawn</div>
                 </div>
 
-                <!-- <div class="filter-label-ui">Filter By Category</div> -->
+                <div class="filter-label-ui">Filter By Category</div>
                 <div class="filter-bar" id="categoryFilters">
                     </div>
 
-                <div style="display: flex; justify-content: space-between; margin-top: 14px; border-top: 1px dashed var(--border); padding-top: 10px;">
+                <div style="display: flex; justify-content: space-between; margin-top: 14px; border-top: 1px dashed var(--border); padding-top: 10px; flex-wrap: wrap; gap: 8px;">
                     <span style="font-size: 12px; color: var(--text-muted);" id="txCount">Showing 0 items</span>
-                    <div style="display: flex; gap: 10px;">
+                    <div style="display: flex; gap: 6px; flex-wrap: wrap;">
                         <span class="pill" id="sortDateIndicator" style="cursor:pointer" onclick="toggleSort('date')">Sort by Date ↓</span>
                         <span class="pill" id="sortAmtIndicator" style="cursor:pointer" onclick="toggleSort('amount')">Sort by Amount</span>
+                        <span class="pill" style="cursor:pointer; background: rgba(39, 174, 96, 0.15); color: #27ae60;" onclick="exportBackupData()">Backup 💾</span>
+                        <span class="pill" style="cursor:pointer; background: rgba(52, 152, 219, 0.15); color: #3498db;" onclick="triggerBackupImport()">Restore 🔄</span>
+                        <input type="file" id="backupFileInput" accept=".json" style="display: none;" onchange="importBackupData(event)">
                     </div>
                 </div>
             </div>
@@ -313,15 +391,19 @@
                 <div class="stat-card">
                     <div style="display:flex; justify-content:space-between; align-items:center;">
                         <h4 style="color:var(--text-muted); font-size:14px;">Monthly Budget Status</h4>
-                        <span class="pill" style="cursor: pointer; background: rgba(255,255,255,0.1);" onclick="setBudget()">Modify This Budget</span>
+                        <span class="pill" style="cursor: pointer; background: rgba(255,255,255,0.1);" onclick="openBudgetModal()">Modify This Budget</span>
                     </div>
                     <div id="budgetStatus" style="font-size: 24px; margin: 10px 0;">₹0 / ₹0</div>
                     <div class="budget-progress"><div id="budgetFill" class="progress-fill"></div></div>
                 </div>
 
-                <div class="charts-row-split">
+                <div class="metrics-three-split">
                     <div class="stat-card" style="padding: 15px;">
-                        <h4 style="color:var(--text-muted); font-size:13px; margin-bottom: 5px;">Cash Inflow (Received)</h4>
+                        <h4 style="color:var(--text-muted); font-size:13px; margin-bottom: 5px;">Money Spent</h4>
+                        <div id="outflowMetric" style="font-size: 20px; font-weight: 600; color: var(--spent);">₹0</div>
+                    </div>
+                    <div class="stat-card" style="padding: 15px;">
+                        <h4 style="color:var(--text-muted); font-size:13px; margin-bottom: 5px;">Cash Inflow</h4>
                         <div id="inflowMetric" style="font-size: 20px; font-weight: 600; color: var(--received);">₹0</div>
                     </div>
                     <div class="stat-card" style="padding: 15px;">
@@ -409,6 +491,25 @@
                     <textarea id="f_notes" rows="2" placeholder="Write specific details here..." style="width:100%; background:var(--bg-primary); border:1px solid var(--border); color:var(--text-main); padding:10px; border-radius:var(--radius); font-family:inherit; resize: none;"></textarea>
                 </div>
                 <button type="submit" class="btn-primary" id="submitFormBtn">Save Transaction</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="modal" id="budgetModal">
+        <div class="modal-content" style="max-width: 380px;">
+            <div style="display:flex; justify-content:space-between; margin-bottom: 16px;">
+                <h3 style="font-weight: 500;" id="budgetModalTitle">Modify Budget</h3>
+                <span style="cursor:pointer" onclick="closeBudgetModal()">✕</span>
+            </div>
+            <form id="budgetForm" onsubmit="saveCustomBudget(e)">
+                <div class="form-group">
+                    <label id="budgetModalLabel">Specify monthly limits (₹)</label>
+                    <input type="number" id="budgetAmountInput" required min="0" placeholder="25000">
+                </div>
+                <div style="display: flex; gap: 10px; margin-top: 20px;">
+                    <button type="button" class="btn-secondary" onclick="closeBudgetModal()">Cancel</button>
+                    <button type="submit" class="btn-primary">Apply Limit</button>
+                </div>
             </form>
         </div>
     </div>
@@ -842,6 +943,7 @@
             const activeHistoricalBudget = budgetMap[targetedMonthKey] !== undefined ? budgetMap[targetedMonthKey] : 25000;
 
             document.getElementById('budgetStatus').innerText = `₹${totalSpent.toLocaleString('en-IN', {minimumFractionDigits: 2})} / ₹${activeHistoricalBudget.toLocaleString('en-IN')}`;
+            document.getElementById('outflowMetric').innerText = `₹${totalSpent.toLocaleString('en-IN', {minimumFractionDigits: 2})}`;
             document.getElementById('inflowMetric').innerText = `₹${totalInflow.toLocaleString('en-IN', {minimumFractionDigits: 2})}`;
             document.getElementById('savingsMetric').innerText = `₹${totalSaved.toLocaleString('en-IN', {minimumFractionDigits: 2})}`;
 
@@ -871,23 +973,102 @@
             typeChartObj.update();
         }
 
-        function setBudget() {
+        // --- Custom Budget Modal Layout Handlers ---
+        function openBudgetModal() {
             const targetedMonthKey = document.getElementById('analyticsMonthPicker').value;
             if(!targetedMonthKey) return;
 
             const existingBudgetAmt = budgetMap[targetedMonthKey] !== undefined ? budgetMap[targetedMonthKey] : 25000;
-            const alternativeEntryInput = prompt(`Specify the monthly tracking budget threshold cap for (${targetedMonthKey}):`, existingBudgetAmt);
             
-            if (alternativeEntryInput !== null) {
-                const validatedFloatNum = parseFloat(alternativeEntryInput);
-                if(!isNaN(validatedFloatNum) && validatedFloatNum >= 0) {
-                    budgetMap[targetedMonthKey] = validatedFloatNum;
-                    localStorage.setItem('fin_budget_map', JSON.stringify(budgetMap));
-                    updateAnalytics();
-                } else {
-                    alert("Please provide a valid non-negative numerical limit.");
-                }
+            document.getElementById('budgetModalTitle').innerText = `Budget for ${targetedMonthKey}`;
+            document.getElementById('budgetAmountInput').value = existingBudgetAmt;
+            document.getElementById('budgetModal').style.display = 'flex';
+            setTimeout(() => document.getElementById('budgetAmountInput').focus(), 120);
+        }
+
+        function closeBudgetModal() {
+            document.getElementById('budgetModal').style.display = 'none';
+        }
+
+        document.getElementById('budgetForm').onsubmit = function(e) {
+            e.preventDefault();
+            const targetedMonthKey = document.getElementById('analyticsMonthPicker').value;
+            if(!targetedMonthKey) return;
+
+            const validatedFloatNum = parseFloat(document.getElementById('budgetAmountInput').value);
+            if(!isNaN(validatedFloatNum) && validatedFloatNum >= 0) {
+                budgetMap[targetedMonthKey] = validatedFloatNum;
+                localStorage.setItem('fin_budget_map', JSON.stringify(budgetMap));
+                updateAnalytics();
+                closeBudgetModal();
+            } else {
+                alert("Please provide a valid non-negative numerical limit.");
             }
+        };
+
+        // --- Backup & Restore Engine Functions ---
+
+        function exportBackupData() {
+            const backupPayload = {
+                version: "1.0",
+                exportDate: new Date().toISOString(),
+                transactions: transactions,
+                budgetMap: budgetMap
+            };
+            
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backupPayload, null, 2));
+            const downloadAnchorNode = document.createElement('a');
+            downloadAnchorNode.setAttribute("href", dataStr);
+            downloadAnchorNode.setAttribute("download", `financeos_backup_${new Date().toISOString().slice(0,10)}.json`);
+            document.body.appendChild(downloadAnchorNode);
+            downloadAnchorNode.click();
+            downloadAnchorNode.remove();
+        }
+
+        function triggerBackupImport() {
+            document.getElementById('backupFileInput').click();
+        }
+
+        function importBackupData(event) {
+            const fileObj = event.target.files[0];
+            if (!fileObj) return;
+
+            const readerInstance = new FileReader();
+            readerInstance.onload = function(e) {
+                try {
+                    const parsedData = JSON.parse(e.target.result);
+                    
+                    // Simple structured field verification
+                    if (parsedData && Array.isArray(parsedData.transactions)) {
+                        if (confirm(`Found ${parsedData.transactions.length} transactions. This process will replace your existing localized data entirely. Proceed?`)) {
+                            transactions = parsedData.transactions.map(t => {
+                                t.category = sanitizeCategoryName(t.category);
+                                return t;
+                            });
+                            budgetMap = parsedData.budgetMap || {};
+                            
+                            // Commit updates directly to Storage Engine mapping hooks
+                            localStorage.setItem('fin_txs', JSON.stringify(transactions));
+                            localStorage.setItem('fin_budget_map', JSON.stringify(budgetMap));
+                            
+                            // Re-bootstrap components
+                            refreshCategoryList();
+                            updateCategoryDatalist();
+                            renderTransactions();
+                            buildMonthDropdownOptions();
+                            
+                            alert("Data successfully restored from backup!");
+                        }
+                    } else {
+                        alert("Invalid backup file architecture pattern. Unable to parse safely.");
+                    }
+                } catch (err) {
+                    alert("Failed to parse the JSON file payload successfully. Error structural profile verified.");
+                }
+                // Clear state selection pathing
+                event.target.value = '';
+            };
+            readerInstance.readAsText(fileObj);
         }
 
         window.onload = init;
