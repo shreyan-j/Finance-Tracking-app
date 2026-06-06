@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>FinanceOS — Minimal Tracker</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
@@ -16,23 +16,31 @@
             --border: #2F2F2F;
             --spent: #eb5757;
             --received: #27ae60;
-            --radius: 6px;
+            --radius: 8px; /* Slightly larger for easier mobile tap boundaries */
             --font: "inter", system-ui, -apple-system, sans-serif;
             --transition: cubic-bezier(0.4, 0, 0.2, 1) 0.2s;
         }
 
-        * { box-sizing: border-box; margin: 0; padding: 0; }
+        * { 
+            box-sizing: border-box; 
+            margin: 0; 
+            padding: 0; 
+            -webkit-tap-highlight-color: transparent; /* Removes default Android orange/blue tap box highlights */
+        }
+        
         body {
             background-color: var(--bg-primary);
             color: var(--text-main);
             font-family: var(--font);
             line-height: 1.5;
-            padding-bottom: 80px;
+            padding-bottom: 100px; /* Added breathing room for system navigation bars */
+            overflow-x: hidden;
+            touch-action: manipulation; /* Disables double-tap zoom delay natively */
         }
 
         /* Layout */
-        .container { max-width: 700px; margin: 0 auto; padding: 20px; }
-        header { margin-bottom: 32px; }
+        .container { max-width: 700px; margin: 0 auto; padding: 16px; }
+        header { margin-bottom: 24px; }
         
         .nav-tabs {
             display: flex;
@@ -45,6 +53,10 @@
             color: var(--text-muted);
             cursor: pointer;
             font-weight: 500;
+            padding: 8px 0;
+            min-height: 44px; /* Android touch target accessibility minimum standard */
+            display: flex;
+            align-items: center;
             transition: var(--transition);
         }
         .nav-tab:hover { color: var(--text-main); }
@@ -55,10 +67,11 @@
             background: var(--bg-secondary);
             border: 1px solid var(--border);
             border-radius: var(--radius);
-            padding: 8px 12px;
+            padding: 12px; /* Increased tap scale comfort */
             width: 100%;
             color: white;
             margin-bottom: 12px;
+            font-size: 16px; /* CRITICAL: Prevents iOS/Android Webkit zooming in automatically on focus */
             transition: var(--transition);
         }
         .search-box:focus { border-color: var(--text-muted); }
@@ -67,7 +80,7 @@
             font-size: 11px;
             text-transform: uppercase;
             color: var(--text-muted);
-            margin: 6px 0 4px 2px;
+            margin: 12px 0 6px 2px;
             letter-spacing: 0.5px;
         }
 
@@ -78,22 +91,26 @@
             padding-bottom: 8px;
             margin-bottom: 4px;
             scrollbar-width: none;
+            -webkit-overflow-scrolling: touch; /* Momentum scrolling layout on Webkit devices */
         }
         .filter-bar::-webkit-scrollbar { display: none; }
+        
         .filter-chip {
             background: var(--bg-secondary);
             border: 1px solid var(--border);
-            padding: 4px 10px;
-            border-radius: 12px;
-            font-size: 12px;
+            padding: 8px 14px; /* Increased tap surface dimension mapping */
+            border-radius: 16px;
+            font-size: 13px;
             white-space: nowrap;
             cursor: pointer;
             color: var(--text-muted);
+            min-height: 36px;
+            display: inline-flex;
+            align-items: center;
             transition: var(--transition);
         }
-        .filter-chip:hover { border-color: var(--text-muted); color: var(--text-main); }
         .filter-chip.active { background: var(--text-main); color: var(--bg-primary); font-weight: 500; border-color: var(--text-main); }
-        .filter-chip:active { transform: scale(0.96); }
+        .filter-chip:active { transform: scale(0.95); background-color: var(--bg-tertiary); }
 
         /* Transaction List */
         .transaction-wrapper {
@@ -104,62 +121,57 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 12px 0 6px 0;
+            padding: 14px 0;
         }
-        .tx-left { display: flex; flex-direction: column; }
-        .tx-title { font-weight: 500; font-size: 14px; }
-        .tx-sub { font-size: 12px; color: var(--text-muted); display: flex; gap: 8px; align-items: center; margin-top: 2px;}
-        .tx-right { text-align: right; }
+        .tx-left { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+        .tx-title { font-weight: 500; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .tx-sub { font-size: 12px; color: var(--text-muted); display: flex; gap: 8px; align-items: center; margin-top: 4px; flex-wrap: wrap;}
+        .tx-right { text-align: right; margin-left: 12px; }
         .tx-amount { font-weight: 600; font-family: monospace; font-size: 15px; }
         .tx-amount.neg { color: var(--spent); }
         .tx-amount.pos { color: var(--received); }
 
         .tx-actions-panel {
             display: flex;
-            gap: 12px;
-            padding-bottom: 10px;
-            font-size: 11px;
+            gap: 16px;
+            padding: 4px 0 14px 0;
+            font-size: 13px;
         }
         .action-link {
             color: var(--text-muted);
             cursor: pointer;
             text-decoration: none;
+            padding: 6px 4px; /* Generous touch footprint spacing maps */
+            display: inline-block;
             transition: var(--transition);
         }
-        .action-link:hover {
-            color: var(--text-main);
-        }
+        .action-link:active { opacity: 0.6; }
 
         .notes-drawer {
             background: rgba(255, 255, 255, 0.02);
             border-left: 2px solid var(--text-muted);
-            padding: 6px 10px;
-            font-size: 12px;
+            padding: 10px;
+            font-size: 13px;
             color: var(--text-muted);
-            margin: 4px 0 10px 0;
+            margin: 4px 0 12px 0;
             border-radius: 0 var(--radius) var(--radius) 0;
+            word-break: break-word;
         }
 
         /* Tags (Pills) */
         .pill {
-            padding: 2px 8px;
+            padding: 4px 10px;
             border-radius: 4px;
             font-size: 11px;
             font-weight: 500;
             background: rgba(255,255,255,0.05);
             color: var(--text-muted);
-            transition: var(--transition);
-        }
-        .pill[style*="cursor:pointer"]:hover, .pill[style*="cursor: pointer"]:hover {
-            background: rgba(255,255,255,0.15) !important;
-            color: var(--text-main) !important;
-            transform: translateY(-1px);
-        }
-        .pill[style*="cursor:pointer"]:active, .pill[style*="cursor: pointer"]:active {
-            transform: translateY(0) scale(0.97);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
         }
 
-        /* Modal / Form */
+        /* Modal / Form Layout Architecture Optimizations for Soft Keyboard overlays */
         .modal {
             display: none;
             position: fixed;
@@ -167,73 +179,78 @@
             background: rgba(0,0,0,0.85);
             z-index: 1000;
             justify-content: center;
-            align-items: center;
-            backdrop-filter: blur(4px);
+            align-items: flex-end; /* Slides open from bottom layout frame on mobile screens */
+            backdrop-filter: blur(6px);
         }
         .modal-content {
             background: var(--bg-secondary);
-            width: 90%;
-            max-width: 450px;
-            border-radius: 12px;
-            padding: 24px;
-            max-height: 90vh;
+            width: 100%;
+            max-width: 500px;
+            border-radius: 16px 16px 0 0; /* Rounded top configuration sheet layout pattern */
+            padding: 24px 20px 40px 20px;
+            max-height: 88vh; /* Keeps upper threshold clear from status bar overlap drops */
             overflow-y: auto;
             border: 1px solid var(--border);
-            animation: modalSlideUp 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            border-bottom: none;
+            -webkit-overflow-scrolling: touch;
+            animation: modalSlideUp 0.28s cubic-bezier(0.1, 0.76, 0.55, 0.94);
         }
-        .form-group { margin-bottom: 16px; }
-        label { display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 4px; }
-        input, select, textinput, textarea {
+        @media(min-width: 600px) {
+            .modal { align-items: center; padding: 20px; }
+            .modal-content { border-radius: 12px; max-height: 90vh; }
+        }
+        
+        .form-group { margin-bottom: 18px; }
+        label { display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 6px; }
+        
+        input, select, textarea {
             width: 100%;
             background: var(--bg-primary);
             border: 1px solid var(--border);
             color: var(--text-main);
-            padding: 10px;
+            padding: 12px;
             border-radius: var(--radius);
             outline: none;
+            font-size: 16px; /* Eliminates interface automatic layout zoom scaling loops on focus triggers */
             transition: var(--transition);
         }
-        input:focus, select:focus, textarea:focus {
-            border-color: var(--text-muted);
-        }
+        input:focus, select:focus, textarea:focus { border-color: var(--text-muted); }
+        
         .btn-primary {
             background: #E3E3E3;
             color: #191919;
             border: none;
-            padding: 12px;
+            padding: 14px;
             width: 100%;
             border-radius: var(--radius);
             font-weight: 600;
+            font-size: 16px;
             cursor: pointer;
+            min-height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             transition: var(--transition);
         }
-        .btn-primary:hover {
-            background: #ffffff;
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(255,255,255,0.1);
-        }
-        .btn-primary:active {
-            transform: translateY(0) scale(0.98);
-        }
+        .btn-primary:active { transform: scale(0.98); background: #ffffff; }
         
         .btn-secondary {
             background: transparent;
             color: var(--text-muted);
             border: 1px solid var(--border);
-            padding: 12px;
+            padding: 14px;
             width: 100%;
             border-radius: var(--radius);
             font-weight: 600;
+            font-size: 16px;
             cursor: pointer;
+            min-height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             transition: var(--transition);
         }
-        .btn-secondary:hover {
-            color: var(--text-main);
-            border-color: var(--text-muted);
-        }
-        .btn-secondary:active {
-            transform: scale(0.98);
-        }
+        .btn-secondary:active { background: rgba(255,255,255,0.05); color: var(--text-main); }
 
         /* Analytics Dashboard View */
         .analytics-selector-row {
@@ -246,95 +263,77 @@
             background: var(--bg-secondary);
             color: var(--text-main);
             border: 1px solid var(--border);
-            padding: 6px 12px;
+            padding: 8px 12px;
             border-radius: var(--radius);
             cursor: pointer;
+            font-size: 14px;
             width: auto;
             font-weight: 500;
-            transition: var(--transition);
         }
-        .month-dropdown:hover { border-color: var(--text-muted); }
-        .analytics-grid { display: grid; gap: 20px; }
+        .analytics-grid { display: grid; gap: 16px; }
         .stat-card {
             background: var(--bg-secondary);
             padding: 20px;
             border-radius: 8px;
             border: 1px solid var(--border);
-            transition: var(--transition);
-        }
-        .stat-card:hover {
-            border-color: rgba(255,255,255,0.08);
-            transform: translateY(-2px);
         }
         .budget-progress {
             height: 8px;
             background: var(--bg-tertiary);
             border-radius: 4px;
-            margin-top: 10px;
+            margin-top: 12px;
             overflow: hidden;
         }
-        .progress-fill { height: 100%; background: var(--text-muted); transition: 0.3s; }
+        .progress-fill { height: 100%; background: var(--text-muted); transition: width 0.3s ease; }
         
-        .charts-row-split {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-        }
-        .metrics-three-split {
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            gap: 15px;
-        }
+        .charts-row-split { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .metrics-three-split { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
         @media(max-width: 600px) {
-            .metrics-three-split { grid-template-columns: 1fr; gap: 10px; }
-            .charts-row-split { grid-template-columns: 1fr; }
+            .metrics-three-split { grid-template-columns: 1fr; gap: 12px; }
+            .charts-row-split { grid-template-columns: 1fr; gap: 24px; }
         }
 
         .chart-box-container {
             display: flex;
             flex-direction: column;
             align-items: center;
+            width: 100%;
         }
         .chart-wrapper-el {
             position: relative;
             width: 100%;
-            max-width: 220px;
+            max-width: 200px;
             margin-top: 10px;
+            aspect-ratio: 1; /* Locking sizing scales securely inside mobile containers */
         }
         
-        /* Floating Action Button */
+        /* Floating Action Button - Enhanced touch targets */
         .fab {
             position: fixed;
-            bottom: 30px;
-            right: 30px;
-            width: 56px;
-            height: 56px;
+            bottom: 24px;
+            right: 24px;
+            width: 60px;
+            height: 60px;
             background: #E3E3E3;
             color: #191919;
             border-radius: 50%;
             display: flex;
             justify-content: center;
             align-items: center;
-            font-size: 24px;
+            font-size: 28px;
             cursor: pointer;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+            box-shadow: 0 6px 24px rgba(0,0,0,0.5);
             z-index: 99;
             transition: var(--transition);
         }
-        .fab:hover {
-            background: #ffffff;
-            transform: scale(1.06) translateY(-2px);
-            box-shadow: 0 6px 24px rgba(255,255,255,0.15);
-        }
-        .fab:active {
-            transform: scale(0.95) translateY(0);
-        }
+        .fab:hover { background: #ffffff; }
+        .fab:active { transform: scale(0.9) translateY(2px); box-shadow: 0 2px 10px rgba(0,0,0,0.4); }
 
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes modalSlideUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes modalSlideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
 
-        /* Custom scrollbar */
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        /* Custom mobile scroller maps */
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
         ::-webkit-scrollbar-thumb { background: var(--bg-tertiary); border-radius: 10px; }
     </style>
 </head>
@@ -360,16 +359,15 @@
                 </div>
 
                 <div class="filter-label-ui">Filter By Category</div>
-                <div class="filter-bar" id="categoryFilters">
-                    </div>
+                <div class="filter-bar" id="categoryFilters"></div>
 
-                <div style="display: flex; justify-content: space-between; margin-top: 14px; border-top: 1px dashed var(--border); padding-top: 10px; flex-wrap: wrap; gap: 8px;">
-                    <span style="font-size: 12px; color: var(--text-muted);" id="txCount">Showing 0 items</span>
-                    <div style="display: flex; gap: 6px; flex-wrap: wrap;">
-                        <span class="pill" id="sortDateIndicator" style="cursor:pointer" onclick="toggleSort('date')">Sort by Date ↓</span>
-                        <span class="pill" id="sortAmtIndicator" style="cursor:pointer" onclick="toggleSort('amount')">Sort by Amount</span>
-                        <span class="pill" style="cursor:pointer; background: rgba(39, 174, 96, 0.15); color: #27ae60;" onclick="exportBackupData()">Backup 💾</span>
-                        <span class="pill" style="cursor:pointer; background: rgba(52, 152, 219, 0.15); color: #3498db;" onclick="triggerBackupImport()">Restore 🔄</span>
+                <div style="display: flex; justify-content: space-between; margin-top: 14px; border-top: 1px dashed var(--border); padding-top: 12px; flex-wrap: wrap; gap: 10px; align-items: center;">
+                    <span style="font-size: 13px; color: var(--text-muted);" id="txCount">Showing 0 items</span>
+                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                        <span class="pill" id="sortDateIndicator" style="cursor:pointer; padding: 6px 10px;" onclick="toggleSort('date')">Sort by Date ↓</span>
+                        <span class="pill" id="sortAmtIndicator" style="cursor:pointer; padding: 6px 10px;" onclick="toggleSort('amount')">Sort by Amount</span>
+                        <span class="pill" style="cursor:pointer; padding: 6px 10px; background: rgba(39, 174, 96, 0.15); color: #27ae60;" onclick="exportBackupData()">Backup 💾</span>
+                        <span class="pill" style="cursor:pointer; padding: 6px 10px; background: rgba(52, 152, 219, 0.15); color: #3498db;" onclick="triggerBackupImport()">Restore 🔄</span>
                         <input type="file" id="backupFileInput" accept=".json" style="display: none;" onchange="importBackupData(event)">
                     </div>
                 </div>
@@ -383,31 +381,30 @@
         <main id="analytics-view" style="display: none;">
             <div class="analytics-selector-row">
                 <h3 style="font-weight: 500;">All Statements</h3>
-                <select class="month-dropdown" id="analyticsMonthPicker" onchange="updateAnalytics()">
-                    </select>
+                <select class="month-dropdown" id="analyticsMonthPicker" onchange="updateAnalytics()"></select>
             </div>
 
             <div class="analytics-grid">
                 <div class="stat-card">
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap: wrap; gap: 8px;">
                         <h4 style="color:var(--text-muted); font-size:14px;" id="budgetCardHeading">Monthly Budget Status</h4>
-                        <span class="pill" id="modifyBudgetBtn" style="cursor: pointer; background: rgba(255,255,255,0.1);" onclick="openBudgetModal()">Modify This Budget</span>
+                        <span class="pill" id="modifyBudgetBtn" style="cursor: pointer; background: rgba(255,255,255,0.1); padding: 6px 10px;" onclick="openBudgetModal()">Modify This Budget</span>
                     </div>
-                    <div id="budgetStatus" style="font-size: 24px; margin: 10px 0;">₹0 / ₹0</div>
+                    <div id="budgetStatus" style="font-size: 24px; margin: 10px 0; font-weight: 600;">₹0 / ₹0</div>
                     <div class="budget-progress"><div id="budgetFill" class="progress-fill"></div></div>
                 </div>
 
                 <div class="metrics-three-split">
-                    <div class="stat-card" style="padding: 15px;">
-                        <h4 style="color:var(--text-muted); font-size:13px; margin-bottom: 5px;">Money Spent</h4>
+                    <div class="stat-card" style="padding: 16px;">
+                        <h4 style="color:var(--text-muted); font-size:13px; margin-bottom: 6px;">Money Spent</h4>
                         <div id="outflowMetric" style="font-size: 20px; font-weight: 600; color: var(--spent);">₹0</div>
                     </div>
-                    <div class="stat-card" style="padding: 15px;">
-                        <h4 style="color:var(--text-muted); font-size:13px; margin-bottom: 5px;">Cash Inflow</h4>
+                    <div class="stat-card" style="padding: 16px;">
+                        <h4 style="color:var(--text-muted); font-size:13px; margin-bottom: 6px;">Cash Inflow</h4>
                         <div id="inflowMetric" style="font-size: 20px; font-weight: 600; color: var(--received);">₹0</div>
                     </div>
-                    <div class="stat-card" style="padding: 15px;">
-                        <h4 style="color:var(--text-muted); font-size:13px; margin-bottom: 5px;">Savings Stashed</h4>
+                    <div class="stat-card" style="padding: 16px;">
+                        <h4 style="color:var(--text-muted); font-size:13px; margin-bottom: 6px;">Savings Stashed</h4>
                         <div id="savingsMetric" style="font-size: 20px; font-weight: 600; color: #3498db;">₹0</div>
                     </div>
                 </div>
@@ -416,13 +413,13 @@
                     <h4 style="color:var(--text-muted); font-size:14px; margin-bottom: 15px; text-align: center;">Statistical Distributions</h4>
                     <div class="charts-row-split">
                         <div class="chart-box-container">
-                            <span style="font-size: 11px; color: var(--text-muted);">Category Spending</span>
+                            <span style="font-size: 12px; color: var(--text-muted); font-weight: 500;">Category Spending</span>
                             <div class="chart-wrapper-el">
                                 <canvas id="categoryChart"></canvas>
                             </div>
                         </div>
                         <div class="chart-box-container">
-                            <span style="font-size: 11px; color: var(--text-muted);">Transaction Types</span>
+                            <span style="font-size: 12px; color: var(--text-muted); font-weight: 500;">Transaction Types</span>
                             <div class="chart-wrapper-el">
                                 <canvas id="typeChart"></canvas>
                             </div>
@@ -435,18 +432,18 @@
 
     <div class="fab" onclick="openModal()">+</div>
 
-    <div class="modal" id="txModal">
+    <div class="modal" id="txModal" onclick="handleOutsideModalClick(event, 'txModal')">
         <div class="modal-content">
-            <div style="display:flex; justify-content:space-between; margin-bottom: 20px;">
-                <h3 style="font-weight: 500;" id="modalTitleEl">New Transaction</h3>
-                <span style="cursor:pointer" onclick="closeModal()">✕</span>
+            <div style="display:flex; justify-content:space-between; margin-bottom: 20px; align-items: center;">
+                <h3 style="font-weight: 500; font-size: 18px;" id="modalTitleEl">New Transaction</h3>
+                <span style="cursor:pointer; padding: 10px; font-size: 18px; color: var(--text-muted);" onclick="closeModal()">✕</span>
             </div>
             
-            <form id="txForm">
+            <form id="txForm" autocomplete="off">
                 <input type="hidden" id="f_id">
                 <div class="form-group">
                     <label>Amount (₹) *</label>
-                    <input type="number" step="0.01" id="f_amount" required placeholder="0.00" onblur="checkContextualFill()">
+                    <input type="number" step="0.01" inputmode="decimal" id="f_amount" required placeholder="0.00" onblur="checkContextualFill()">
                 </div>
                 <div class="form-group">
                     <label>Title</label>
@@ -468,8 +465,8 @@
                     </div>
                 </div>
                 <div class="form-group">
-                    <label>Category (Leave empty to auto-use most frequent category)</label>
-                    <input list="categoryList" id="f_category" placeholder="Select or type to add...">
+                    <label>Category (Leave empty to auto-use frequent)</label>
+                    <input list="categoryList" id="f_category" placeholder="Select or type category...">
                     <datalist id="categoryList"></datalist>
                 </div>
                 <div class="form-group">
@@ -488,25 +485,25 @@
                 </div>
                 <div class="form-group">
                     <label>Notes / Remarks</label>
-                    <textarea id="f_notes" rows="2" placeholder="Write specific details here..." style="width:100%; background:var(--bg-primary); border:1px solid var(--border); color:var(--text-main); padding:10px; border-radius:var(--radius); font-family:inherit; resize: none;"></textarea>
+                    <textarea id="f_notes" rows="2" placeholder="Write specific details here..." style="resize: none; font-family: inherit;"></textarea>
                 </div>
                 <button type="submit" class="btn-primary" id="submitFormBtn">Save Transaction</button>
             </form>
         </div>
     </div>
 
-    <div class="modal" id="budgetModal">
-        <div class="modal-content" style="max-width: 380px;">
-            <div style="display:flex; justify-content:space-between; margin-bottom: 16px;">
-                <h3 style="font-weight: 500;" id="budgetModalTitle">Modify Budget</h3>
-                <span style="cursor:pointer" onclick="closeBudgetModal()">✕</span>
+    <div class="modal" id="budgetModal" onclick="handleOutsideModalClick(event, 'budgetModal')">
+        <div class="modal-content" style="max-width: 400px;">
+            <div style="display:flex; justify-content:space-between; margin-bottom: 20px; align-items: center;">
+                <h3 style="font-weight: 500; font-size: 18px;" id="budgetModalTitle">Modify Budget</h3>
+                <span style="cursor:pointer; padding: 10px; font-size: 18px; color: var(--text-muted);" onclick="closeBudgetModal()">✕</span>
             </div>
             <form id="budgetForm">
                 <div class="form-group">
                     <label id="budgetModalLabel">Specify monthly limits (₹)</label>
-                    <input type="number" id="budgetAmountInput" required min="0" placeholder="25000">
+                    <input type="number" inputmode="numeric" id="budgetAmountInput" required min="0" placeholder="25000">
                 </div>
-                <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <div style="display: flex; gap: 12px; margin-top: 24px;">
                     <button type="button" class="btn-secondary" onclick="closeBudgetModal()">Cancel</button>
                     <button type="submit" class="btn-primary">Apply Limit</button>
                 </div>
@@ -544,7 +541,7 @@
         // Configuration state filters
         let currentSort = { key: 'date', direction: 'desc' };
         let activeCategoryFilter = 'All';
-        let activeTypeFilter = 'All'; // Dual filtering dimension tracker
+        let activeTypeFilter = 'All'; 
         let expandedNotes = {}; 
         let categories = [];
 
@@ -582,7 +579,7 @@
             initCharts();
         }
 
-        // Page Navigation
+        // Page Navigation Toggle Setup
         function switchPage(page) {
             document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
             
@@ -602,8 +599,15 @@
             }
         }
 
-        // --- Core Template Processing Logic with Dual Filters ---
+        // --- Outside Modal Tap Dismissal Engine Hook ---
+        function handleOutsideModalClick(event, modalId) {
+            if (event.target.id === modalId) {
+                if (modalId === 'txModal') closeModal();
+                if (modalId === 'budgetModal') closeBudgetModal();
+            }
+        }
 
+        // --- Core Template Processing Logic with Dual Filters ---
         function renderTransactions() {
             const list = document.getElementById('transactionList');
             const search = document.getElementById('globalSearch').value.toLowerCase();
@@ -615,17 +619,13 @@
                 const catStr = (t.category || '').toLowerCase();
                 
                 const matchesSearch = titleStr.includes(search) || notesStr.includes(search) || locStr.includes(search) || catStr.includes(search);
-                
-                // Case Insensitive Match for Category filter mapping
                 const matchesCat = activeCategoryFilter === 'All' || sanitizeCategoryName(t.category) === sanitizeCategoryName(activeCategoryFilter);
-                
-                // Match for Transaction Type filter configuration mapping
                 const matchesType = activeTypeFilter === 'All' || t.type === activeTypeFilter;
                 
                 return matchesSearch && matchesCat && matchesType;
             });
 
-            // Sorting Logic
+            // Sorting Engine Logic
             filtered.sort((a, b) => {
                 let valA = a[currentSort.key];
                 let valB = b[currentSort.key];
@@ -641,6 +641,12 @@
 
             document.getElementById('txCount').innerText = `Showing ${filtered.length} items`;
 
+            if(filtered.length === 0) {
+                list.innerHTML = `<div style="text-align:center; padding:40px 20px; color:var(--text-muted); font-size:14px;">No matching transactions found</div>`;
+                renderFilterChips();
+                return;
+            }
+
             list.innerHTML = filtered.map(t => {
                 const trackingNotes = t.notes && t.notes.trim().length > 0;
                 const isExpanded = expandedNotes[t.id];
@@ -651,12 +657,12 @@
                         <div class="tx-left">
                             <span class="tx-title">
                                 ${t.title || 'Untitled'} 
-                                ${trackingNotes ? `<span style="color:var(--text-muted); cursor:pointer;" onclick="toggleNotesDrawer(${t.id})" title="View notes">📝</span>` : ''}
+                                ${trackingNotes ? `<span style="margin-left:4px; font-size:12px; cursor:pointer;" onclick="toggleNotesDrawer(${t.id})">📝</span>` : ''}
                             </span>
                             <div class="tx-sub">
                                 <span>${new Date(t.date).toLocaleDateString('en-IN', {month: 'short', day: 'numeric', year: 'numeric'})}</span>
                                 <span class="pill">${sanitizeCategoryName(t.category) || 'Uncategorized'}</span>
-                                <span style="font-size:10px">•</span>
+                                <span style="font-size:10px; color:var(--border)">•</span>
                                 <span style="color:var(--text-muted)">${t.method}</span>
                             </div>
                         </div>
@@ -664,7 +670,7 @@
                             <div class="tx-amount ${t.type === 'Spent' || t.type === 'Withdrawn' ? 'neg' : 'pos'}">
                                 ${t.type === 'Spent' || t.type === 'Withdrawn' ? '-' : '+'}₹${Math.abs(t.amount).toLocaleString('en-IN', {minimumFractionDigits: 2})}
                             </div>
-                            <div style="font-size:11px; color:var(--text-muted)">${t.type}</div>
+                            <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">${t.type}</div>
                         </div>
                     </div>
                     
@@ -702,7 +708,6 @@
 
         function setTypeFilter(type, chipEl) {
             activeTypeFilter = type;
-            // Update active states visual representation
             document.querySelectorAll('#typeFilters .filter-chip').forEach(el => el.classList.remove('active'));
             chipEl.classList.add('active');
             renderTransactions();
@@ -722,16 +727,18 @@
             renderTransactions();
         }
 
-        // --- Form Handler Persistent Modifiers ---
-
+        // --- Form Handler Modifiers ---
         function openModal() {
             document.getElementById('modalTitleEl').innerText = "New Transaction";
             document.getElementById('submitFormBtn').innerText = "Save Transaction";
             document.getElementById('f_id').value = "";
             document.getElementById('txModal').style.display = 'flex';
             
-            const amountInput = document.getElementById('f_amount');
-            setTimeout(() => amountInput.focus(), 100);
+            // Soft keyboard input optimization delay hook
+            setTimeout(() => {
+                document.getElementById('f_amount').focus();
+            }, 300);
+            
             document.getElementById('f_date').valueAsDate = new Date();
             
             if (transactions.length > 0) {
@@ -799,7 +806,6 @@
             const targetId = document.getElementById('f_id').value;
             let finalCategory = document.getElementById('f_category').value.trim();
             
-            // Auto Fallback Engine: If empty, pick the most used tracking category
             if (!finalCategory || finalCategory === '') {
                 finalCategory = getMostUsedCategory();
             } else {
@@ -844,7 +850,6 @@
         }
 
         // --- Advanced Analytics Core Engine ---
-
         function buildMonthDropdownOptions() {
             const selectEl = document.getElementById('analyticsMonthPicker');
             const savedSelectedVal = selectEl.value; 
@@ -870,7 +875,6 @@
 
             uniquelyMappedMonths.sort((a,b) => b.key.localeCompare(a.key));
             
-            // Build dropdown with "All Time" as the top-most default options hook
             let finalOptionsHtml = `<option value="all-time">All Time</option>`;
             finalOptionsHtml += uniquelyMappedMonths.map(m => `<option value="${m.key}">${m.label}</option>`).join('');
             
@@ -900,7 +904,9 @@
                     }]
                 },
                 options: {
-                    plugins: { legend: { display: true, position: 'bottom', labels: { color: '#8F8F8F', boxWidth: 10, font: { size: 10 } } } }
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: true, position: 'bottom', labels: { color: '#8F8F8F', boxWidth: 8, font: { size: 10 } } } }
                 }
             });
 
@@ -917,7 +923,9 @@
                     }]
                 },
                 options: {
-                    plugins: { legend: { display: true, position: 'bottom', labels: { color: '#8F8F8F', boxWidth: 10, font: { size: 10 } } } }
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: true, position: 'bottom', labels: { color: '#8F8F8F', boxWidth: 8, font: { size: 10 } } } }
                 }
             });
         }
@@ -930,14 +938,10 @@
             let activeHistoricalBudget = 0;
 
             if (targetedMonthKey === "all-time") {
-                // Aggregate complete setup configurations
                 monthlyTransactionsGroup = [...transactions];
-                
-                // Hide or Adjust modify metrics limits hooks since All-Time is a computed summary
                 document.getElementById('budgetCardHeading').innerText = "Cumulative Budget Status";
                 document.getElementById('modifyBudgetBtn').style.display = "none";
                 
-                // Sum all unique budgets saved in the system setup tracker maps
                 const dynamicUniqueMonths = [...new Set(transactions.map(t => {
                     const d = new Date(t.date);
                     return isNaN(d.getTime()) ? null : `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
@@ -1019,7 +1023,7 @@
             document.getElementById('budgetModalTitle').innerText = `Budget for ${targetedMonthKey}`;
             document.getElementById('budgetAmountInput').value = existingBudgetAmt;
             document.getElementById('budgetModal').style.display = 'flex';
-            setTimeout(() => document.getElementById('budgetAmountInput').focus(), 120);
+            setTimeout(() => document.getElementById('budgetAmountInput').focus(), 300);
         }
 
         function closeBudgetModal() {
@@ -1043,7 +1047,6 @@
         };
 
         // --- Backup & Restore Engine Functions ---
-
         function exportBackupData() {
             const backupPayload = {
                 version: "1.0",
@@ -1073,8 +1076,6 @@
             readerInstance.onload = function(e) {
                 try {
                     const parsedData = JSON.parse(e.target.result);
-                    
-                    // Simple structured field verification
                     if (parsedData && Array.isArray(parsedData.transactions)) {
                         if (confirm(`Found ${parsedData.transactions.length} transactions. This process will replace your existing localized data entirely. Proceed?`)) {
                             transactions = parsedData.transactions.map(t => {
@@ -1083,11 +1084,9 @@
                             });
                             budgetMap = parsedData.budgetMap || {};
                             
-                            // Commit updates directly to Storage Engine mapping hooks
                             localStorage.setItem('fin_txs', JSON.stringify(transactions));
                             localStorage.setItem('fin_budget_map', JSON.stringify(budgetMap));
                             
-                            // Re-bootstrap components
                             refreshCategoryList();
                             updateCategoryDatalist();
                             renderTransactions();
@@ -1099,9 +1098,8 @@
                         alert("Invalid backup file architecture pattern. Unable to parse safely.");
                     }
                 } catch (err) {
-                    alert("Failed to parse the JSON file payload successfully. Error structural profile verified.");
+                    alert("Failed to parse the JSON file payload successfully.");
                 }
-                // Clear state selection pathing
                 event.target.value = '';
             };
             readerInstance.readAsText(fileObj);
