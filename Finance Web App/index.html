@@ -871,7 +871,7 @@
             uniquelyMappedMonths.sort((a,b) => b.key.localeCompare(a.key));
             
             // Build dropdown with "All Time" as the top-most default options hook
-            let finalOptionsHtml = `<option value="all-time">All Time Analysis</option>`;
+            let finalOptionsHtml = `<option value="all-time">All Time</option>`;
             finalOptionsHtml += uniquelyMappedMonths.map(m => `<option value="${m.key}">${m.label}</option>`).join('');
             
             selectEl.innerHTML = finalOptionsHtml;
